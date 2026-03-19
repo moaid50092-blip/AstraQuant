@@ -1,173 +1,125 @@
 # main.py
 
-"""
-AstraQuant — Main Entry Point
-
-This file initializes all core components and runs the system pipeline.
-
-Pipeline:
-
-Market Universe
-→ Market Data
-→ Scanner (Two-Stage)
-→ Strategy Detection
-→ Intelligence Engines
-→ Probability Engine
-→ Opportunity Ranking
-→ Opportunity Quality
-→ Portfolio Manager
-→ Position Sizing
-→ Signal Stability
-→ Execution Engine
-"""
-
+from data.market_data_loader import MarketDataLoader
 from market.market_universe import MarketUniverse
-from data.market_data import MarketData
 from scanner.scanner import Scanner
-
 from strategy.strategy_engine import StrategyEngine
-
-from intelligence.mtf_engine import MTFEngine
-from intelligence.liquidity_engine import LiquidityEngine
-from intelligence.structure_engine import StructureEngine
-from intelligence.session_engine import SessionEngine
-from intelligence.cross_asset_engine import CrossAssetEngine
-
 from probability.probability_engine import ProbabilityEngine
-
-from ranking.opportunity_ranking_engine import OpportunityRankingEngine
-from quality.opportunity_quality_engine import OpportunityQualityEngine
-
+from opportunity.opportunity_ranking_engine import OpportunityRankingEngine
+from opportunity.opportunity_quality_engine import OpportunityQualityEngine
 from portfolio.portfolio_manager import PortfolioManager
 from portfolio.position_sizing_engine import PositionSizingEngine
-
-from execution.signal_stability_engine import SignalStabilityEngine
+from stability.signal_stability_engine import SignalStabilityEngine
 from execution.execution_engine import ExecutionEngine
+from learning.alpha_decay_engine import AlphaDecayEngine
 
-from utils.logger import Logger
+from monitoring.instrumentation import Instrumentation
 
 
-class AstraQuant:
-
-    def __init__(self):
-
-        # Infrastructure
-        self.logger = Logger()
-
-        # Market Layer
-        self.market_universe = MarketUniverse()
-        self.market_data = MarketData()
-
-        # Strategy
-        self.strategy_engine = StrategyEngine()
-
-        # Intelligence
-        self.mtf_engine = MTFEngine()
-        self.liquidity_engine = LiquidityEngine()
-        self.structure_engine = StructureEngine()
-        self.session_engine = SessionEngine()
-        self.cross_asset_engine = CrossAssetEngine()
-
-        # Probability
-        self.probability_engine = ProbabilityEngine()
-
-        # Scanner
-        self.scanner = Scanner(
-            strategy_engine=self.strategy_engine,
-            probability_engine=self.probability_engine
-        )
-
-        # Ranking
-        self.ranking_engine = OpportunityRankingEngine()
-
-        # Opportunity Quality
-        self.quality_engine = OpportunityQualityEngine()
-
-        # Portfolio
-        self.portfolio_manager = PortfolioManager()
-        self.position_sizing = PositionSizingEngine()
-
-        # Execution
-        self.signal_stability = SignalStabilityEngine()
-        self.execution_engine = ExecutionEngine()
+def main():
 
     # -------------------------------------------------
-    # Run One Cycle
+    # Initialize Components
     # -------------------------------------------------
 
-    def run_cycle(self):
+    market_universe = MarketUniverse()
+    data_loader = MarketDataLoader()
 
-        # ---------------------------------------------
-        # Market Universe
-        # ---------------------------------------------
-        symbols = self.market_universe.get_universe()
+    strategy_engine = StrategyEngine()
+    probability_engine = ProbabilityEngine()
 
-        # ---------------------------------------------
-        # Market Data
-        # ---------------------------------------------
-        market_data = self.market_data.load_market_data(symbols)
+    scanner = Scanner(strategy_engine, probability_engine)
 
-        # ---------------------------------------------
-        # Scanner
-        # ---------------------------------------------
-        opportunities = self.scanner.run_scan(market_data)
+    ranking_engine = OpportunityRankingEngine()
+    quality_engine = OpportunityQualityEngine()
 
-        if not opportunities:
-            return
+    portfolio_manager = PortfolioManager()
+    position_sizing = PositionSizingEngine()
+    stability_engine = SignalStabilityEngine()
+    execution_engine = ExecutionEngine()
 
-        # ---------------------------------------------
-        # Opportunity Ranking
-        # ---------------------------------------------
-        ranked = self.ranking_engine.rank(opportunities)
+    learning_engine = AlphaDecayEngine()
 
-        # ---------------------------------------------
-        # Opportunity Quality
-        # ---------------------------------------------
-        market_quality = self.quality_engine.evaluate(ranked)
+    instrumentation = Instrumentation()
 
-        # ---------------------------------------------
-        # Portfolio Decision
-        # ---------------------------------------------
-        trades = self.portfolio_manager.select_trades(
-            ranked,
-            market_quality
-        )
+    # -------------------------------------------------
+    # Load Market Data
+    # -------------------------------------------------
 
-        # ---------------------------------------------
-        # Position Sizing
-        # ---------------------------------------------
-        sized_trades = self.position_sizing.apply(trades)
+    symbols = market_universe.get_symbols()
+    market_data = data_loader.load(symbols)
 
-        # ---------------------------------------------
-        # Signal Stability
-        # ---------------------------------------------
-        confirmed_trades = self.signal_stability.confirm(sized_trades)
+    # -------------------------------------------------
+    # Scanner (with metrics)
+    # -------------------------------------------------
 
-        # ---------------------------------------------
-        # Execution
-        # ---------------------------------------------
-        self.execution_engine.execute(confirmed_trades)
+    scan_result = scanner.run_scan(market_data)
 
+    opportunities = scan_result["opportunities"]
+    metrics = scan_result["metrics"]
 
-# -------------------------------------------------
-# System Loop
-# -------------------------------------------------
+    # ---------------------------------------------
+    # Instrumentation (Scanner Level)
+    # ---------------------------------------------
 
-def run():
+    instrumentation.update("scanner", len(opportunities))  # candidates
+    instrumentation.update("strategy", metrics["strategy_count"])
+    instrumentation.update("probability", metrics["probability_count"])
 
-    system = AstraQuant()
+    # -------------------------------------------------
+    # Ranking
+    # -------------------------------------------------
 
-    while True:
+    ranked_opportunities = ranking_engine.rank(opportunities)
 
-        try:
+    # -------------------------------------------------
+    # Opportunity Quality
+    # -------------------------------------------------
 
-            system.run_cycle()
+    quality_opportunities = quality_engine.evaluate(ranked_opportunities)
 
-        except Exception as e:
+    # -------------------------------------------------
+    # Portfolio Selection
+    # -------------------------------------------------
 
-            system.logger.error(str(e))
+    selected_trades = portfolio_manager.select(quality_opportunities)
+
+    # -------------------------------------------------
+    # Position Sizing
+    # -------------------------------------------------
+
+    sized_trades = position_sizing.apply(selected_trades)
+
+    # -------------------------------------------------
+    # Signal Stability
+    # -------------------------------------------------
+
+    stable_trades = []
+
+    for trade in sized_trades:
+        if stability_engine.evaluate(trade):
+            stable_trades.append(trade)
+
+    # -------------------------------------------------
+    # Execution
+    # -------------------------------------------------
+
+    executed_trades = execution_engine.execute(stable_trades)
+
+    instrumentation.update("execution", len(executed_trades))
+
+    # -------------------------------------------------
+    # Learning
+    # -------------------------------------------------
+
+    learning_engine.update(executed_trades)
+
+    # -------------------------------------------------
+    # Report
+    # -------------------------------------------------
+
+    instrumentation.report()
 
 
 if __name__ == "__main__":
-
-    run()
+    main()

@@ -62,7 +62,7 @@ def main():
     # Instrumentation (Scanner Level)
     # ---------------------------------------------
 
-    instrumentation.update("scanner", len(opportunities))  # candidates
+    instrumentation.update("scanner", len(opportunities))
     instrumentation.update("strategy", metrics["strategy_count"])
     instrumentation.update("probability", metrics["probability_count"])
 
@@ -105,6 +105,20 @@ def main():
     # -------------------------------------------------
 
     executed_trades = execution_engine.execute(stable_trades)
+
+    # -------------------------------------------------
+    # Temporary Trade Output (Monitoring Only)
+    # -------------------------------------------------
+
+    print("\n=== Executed Trades ===")
+    for trade in executed_trades:
+        print({
+            "symbol": trade.get("symbol", "N/A"),
+            "entry": trade.get("entry", "N/A"),
+            "stop_loss": trade.get("stop_loss", "N/A"),
+            "take_profit": trade.get("take_profit", "N/A"),
+        })
+    print("========================\n")
 
     instrumentation.update("execution", len(executed_trades))
 

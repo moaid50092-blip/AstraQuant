@@ -20,7 +20,7 @@ import numpy as np
 import time
 
 
-class MarketData:
+class MarketDataLoader:
 
     def __init__(self):
 

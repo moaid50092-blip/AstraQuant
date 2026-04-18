@@ -26,7 +26,7 @@ def main():
     # -------------------------------------------------
 
     symbols = market_universe.get_symbols()
-    market_data = data_loader.load(symbols)
+    market_data = data_loader.load_market_data(symbols)  # ✅ التعديل هون
 
     # -------------------------------------------------
     # Scanner Only

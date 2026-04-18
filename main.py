@@ -5,15 +5,6 @@ from market.market_universe import MarketUniverse
 from scanner.scanner import Scanner
 from strategy.strategy_engine import StrategyEngine
 from probability.probability_engine import ProbabilityEngine
-from opportunity.opportunity_ranking_engine import OpportunityRankingEngine
-from opportunity.opportunity_quality_engine import OpportunityQualityEngine
-from portfolio.portfolio_manager import PortfolioManager
-from portfolio.position_sizing_engine import PositionSizingEngine
-from stability.signal_stability_engine import SignalStabilityEngine
-from execution.execution_engine import ExecutionEngine
-from learning.alpha_decay_engine import AlphaDecayEngine
-
-from monitoring.instrumentation import Instrumentation
 
 
 def main():
@@ -30,18 +21,6 @@ def main():
 
     scanner = Scanner(strategy_engine, probability_engine)
 
-    ranking_engine = OpportunityRankingEngine()
-    quality_engine = OpportunityQualityEngine()
-
-    portfolio_manager = PortfolioManager()
-    position_sizing = PositionSizingEngine()
-    stability_engine = SignalStabilityEngine()
-    execution_engine = ExecutionEngine()
-
-    learning_engine = AlphaDecayEngine()
-
-    instrumentation = Instrumentation()
-
     # -------------------------------------------------
     # Load Market Data
     # -------------------------------------------------
@@ -50,9 +29,34 @@ def main():
     market_data = data_loader.load(symbols)
 
     # -------------------------------------------------
-    # Scanner (with metrics)
+    # Scanner Only
     # -------------------------------------------------
 
+    scan_result = scanner.run_scan(market_data)
+
+    opportunities = scan_result["opportunities"]
+    metrics = scan_result["metrics"]
+
+    # -------------------------------------------------
+    # Output (Monitoring Only)
+    # -------------------------------------------------
+
+    print("\n=== Scanner Output ===")
+
+    print(f"Total Opportunities: {len(opportunities)}")
+    print(f"Strategy Signals: {metrics.get('strategy_count', 0)}")
+    print(f"Probability Signals: {metrics.get('probability_count', 0)}")
+
+    print("\nSample Opportunities:")
+
+    for op in opportunities[:10]:  # فقط أول 10 للعرض
+        print(op)
+
+    print("========================\n")
+
+
+if __name__ == "__main__":
+    main()
     scan_result = scanner.run_scan(market_data)
 
     opportunities = scan_result["opportunities"]

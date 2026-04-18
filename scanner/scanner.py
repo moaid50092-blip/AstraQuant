@@ -27,34 +27,20 @@ class Scanner:
 
         self.fast_scanner = FastScanner(candidate_count=candidate_count)
 
+        # 🔥 NEW: minimum probability threshold
+        self.min_probability = 0.52
+
     # -------------------------------------------------
     # Run Full Scan
     # -------------------------------------------------
 
     def run_scan(self, market_data):
 
-        """
-        market_data format:
-
-        {
-            "BTC": dataframe,
-            "ETH": dataframe,
-            ...
-        }
-        """
-
-        # ---------------------------------------------
-        # Stage 1: Fast Scan
-        # ---------------------------------------------
         ranked_assets = self.fast_scanner.rank_assets(market_data)
-
         candidates = self.fast_scanner.select_candidates(ranked_assets)
 
         candidate_symbols = [c["symbol"] for c in candidates]
 
-        # ---------------------------------------------
-        # Stage 2: Deep Analysis
-        # ---------------------------------------------
         opportunities = []
 
         strategy_count = 0
@@ -82,8 +68,11 @@ class Scanner:
             # -----------------------------------------
             probability = self.probability_engine.evaluate(strategy_signal)
 
-            # (no filtering — always passes)
             probability_count += 1
+
+            # 🔥🔥🔥 NEW: FILTERING LOGIC
+            if probability < self.min_probability:
+                continue
 
             opportunity = {
                 "symbol": symbol,
@@ -93,9 +82,6 @@ class Scanner:
 
             opportunities.append(opportunity)
 
-        # ---------------------------------------------
-        # Return with Metrics (Observability Only)
-        # ---------------------------------------------
         return {
             "opportunities": opportunities,
             "metrics": {

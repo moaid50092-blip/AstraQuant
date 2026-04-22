@@ -26,19 +26,20 @@ def main():
     # -------------------------------------------------
 
     symbols = market_universe.get_symbols()
-    market_data = data_loader.load_market_data(symbols)  # ✅ التعديل هون
+    market_data = data_loader.load_market_data(symbols)
 
     # -------------------------------------------------
-    # Scanner Only
+    # Scanner
     # -------------------------------------------------
 
     scan_result = scanner.run_scan(market_data)
 
-    opportunities = scan_result["opportunities"]
-    metrics = scan_result["metrics"]
+    opportunities = scan_result.get("opportunities", [])
+    all_signals = scan_result.get("all_signals", [])  # 🔥 NEW
+    metrics = scan_result.get("metrics", {})
 
     # -------------------------------------------------
-    # Output (Monitoring Only)
+    # Output
     # -------------------------------------------------
 
     print("\n=== Scanner Output ===")
@@ -47,12 +48,29 @@ def main():
     print(f"Strategy Signals: {metrics.get('strategy_count', 0)}")
     print(f"Probability Signals: {metrics.get('probability_count', 0)}")
 
-    print("\nSample Opportunities:")
+    # ---------------------------------------------
+    # 🔥 ALL SIGNALS (الأهم)
+    # ---------------------------------------------
+    print("\n=== All Signals (Market View) ===")
 
-    for op in opportunities[:10]:  # فقط أول 10 للعرض
-        print(op)
+    for s in all_signals:
+        symbol = s.get("symbol", "N/A")
+        prob = s.get("probability", 0)
 
-    print("========================\n")
+        print(f"{symbol} → {round(prob, 3)}")
+
+    # ---------------------------------------------
+    # Opportunities (Filtered)
+    # ---------------------------------------------
+    print("\n=== High Probability Opportunities ===")
+
+    for op in opportunities[:10]:
+        print({
+            "symbol": op.get("symbol", "N/A"),
+            "probability": op.get("probability_score", "N/A")
+        })
+
+    print("\n========================\n")
 
 
 if __name__ == "__main__":

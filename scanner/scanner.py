@@ -1,65 +1,78 @@
-def run_scan(self, market_data):
+from scanner.fast_scanner import FastScanner
 
-    ranked_assets = self.fast_scanner.rank_assets(market_data)
-    candidates = self.fast_scanner.select_candidates(ranked_assets)
 
-    candidate_symbols = [c["symbol"] for c in candidates]
+class Scanner:
 
-    opportunities = []
-    all_signals = []  # 🔥 NEW
+    def __init__(self, strategy_engine, probability_engine, candidate_count=10):
 
-    strategy_count = 0
-    probability_count = 0
+        self.strategy_engine = strategy_engine
+        self.probability_engine = probability_engine
 
-    for symbol in candidate_symbols:
+        self.fast_scanner = FastScanner(candidate_count=candidate_count)
 
-        df = market_data.get(symbol)
+        # 🔥 minimum probability threshold
+        self.min_probability = 0.52
 
-        if df is None:
-            continue
+    # -------------------------------------------------
+    # Run Full Scan
+    # -------------------------------------------------
 
-        # -----------------------------------------
-        # Strategy Detection
-        # -----------------------------------------
-        strategy_signal = self.strategy_engine.detect(symbol, df)
+    def run_scan(self, market_data):
 
-        if strategy_signal is None:
-            continue
+        ranked_assets = self.fast_scanner.rank_assets(market_data)
+        candidates = self.fast_scanner.select_candidates(ranked_assets)
 
-        strategy_count += 1
+        candidate_symbols = [c["symbol"] for c in candidates]
 
-        # -----------------------------------------
-        # Probability Evaluation
-        # -----------------------------------------
-        probability = self.probability_engine.evaluate(strategy_signal)
+        opportunities = []
+        all_signals = []
 
-        probability_count += 1
+        strategy_count = 0
+        probability_count = 0
 
-        # 🔥 NEW: store ALL signals (even weak ones)
-        all_signals.append({
-            "symbol": symbol,
-            "probability": float(probability)
-        })
+        for symbol in candidate_symbols:
 
-        # -----------------------------------------
-        # FILTERING (only strong ones become opportunities)
-        # -----------------------------------------
-        if probability < self.min_probability:
-            continue
+            df = market_data.get(symbol)
 
-        opportunity = {
-            "symbol": symbol,
-            "signal": strategy_signal,
-            "probability_score": probability
+            if df is None:
+                continue
+
+            # Strategy Detection
+            strategy_signal = self.strategy_engine.detect(symbol, df)
+
+            if strategy_signal is None:
+                continue
+
+            strategy_count += 1
+
+            # Probability Evaluation
+            probability = self.probability_engine.evaluate(strategy_signal)
+
+            probability_count += 1
+
+            # 🔥 store ALL signals
+            all_signals.append({
+                "symbol": symbol,
+                "probability": float(probability)
+            })
+
+            # Filter opportunities
+            if probability < self.min_probability:
+                continue
+
+            opportunity = {
+                "symbol": symbol,
+                "signal": strategy_signal,
+                "probability_score": probability
+            }
+
+            opportunities.append(opportunity)
+
+        return {
+            "opportunities": opportunities,
+            "all_signals": all_signals,
+            "metrics": {
+                "strategy_count": strategy_count,
+                "probability_count": probability_count
+            }
         }
-
-        opportunities.append(opportunity)
-
-    return {
-        "opportunities": opportunities,
-        "all_signals": all_signals,  # 🔥 NEW
-        "metrics": {
-            "strategy_count": strategy_count,
-            "probability_count": probability_count
-        }
-    }

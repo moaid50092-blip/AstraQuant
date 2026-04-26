@@ -1,7 +1,10 @@
 from scanner.fast_scanner import FastScanner
 
-# 🔥 NEW
+# 🔥 Momentum
 from momentum.momentum_tracker import MomentumTracker
+
+# 🔥 Context
+from context.context_analyzer import ContextAnalyzer
 
 
 class Scanner:
@@ -16,8 +19,11 @@ class Scanner:
         # 🔥 minimum probability threshold
         self.min_probability = 0.52
 
-        # 🔥 NEW: momentum tracker (stateful)
+        # 🔥 Momentum tracker (stateful)
         self.momentum_tracker = MomentumTracker(window_size=4)
+
+        # 🔥 Context analyzer
+        self.context_analyzer = ContextAnalyzer()
 
     # -------------------------------------------------
     # Run Full Scan
@@ -60,19 +66,58 @@ class Scanner:
 
             probability_count += 1
 
-            # 🔥 NEW: update momentum
+            # -----------------------------------------
+            # 🔥 Momentum
+            # -----------------------------------------
             self.momentum_tracker.update(symbol, probability)
             momentum_info = self.momentum_tracker.get_momentum_info(symbol)
 
             # -----------------------------------------
-            # Store ALL signals (with momentum)
+            # 🔥 Context
+            # -----------------------------------------
+            context = self.context_analyzer.analyze(df)
+
+            # -----------------------------------------
+            # 🔥 Real vs Fake Detector (Observation Mode)
+            # -----------------------------------------
+            setup_quality = "unclear"
+
+            if (
+                momentum_info["direction"] == "up"
+                and momentum_info["strength"] >= 0.67
+                and context["trend"] == "up"
+                and context["zone"] != "resistance"
+            ):
+                setup_quality = "real"
+
+            elif (
+                momentum_info["direction"] == "up"
+                and (
+                    context["zone"] == "resistance"
+                    or context["trend"] == "range"
+                )
+            ):
+                setup_quality = "fake"
+
+            # -----------------------------------------
+            # Store ALL signals
             # -----------------------------------------
             all_signals.append({
                 "symbol": symbol,
                 "probability": float(probability),
+
+                # Momentum
                 "momentum": momentum_info["direction"],
                 "strength": momentum_info["strength"],
-                "history": momentum_info["history"]
+                "history": momentum_info["history"],
+
+                # Context
+                "trend": context["trend"],
+                "zone": context["zone"],
+                "breakout": context["breakout"],
+
+                # Setup quality
+                "setup": setup_quality
             })
 
             # -----------------------------------------
@@ -86,9 +131,17 @@ class Scanner:
                 "signal": strategy_signal,
                 "probability_score": probability,
 
-                # 🔥 OPTIONAL: include momentum in opportunity
+                # Momentum
                 "momentum": momentum_info["direction"],
-                "strength": momentum_info["strength"]
+                "strength": momentum_info["strength"],
+
+                # Context
+                "trend": context["trend"],
+                "zone": context["zone"],
+                "breakout": context["breakout"],
+
+                # Setup
+                "setup": setup_quality
             }
 
             opportunities.append(opportunity)

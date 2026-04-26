@@ -6,6 +6,9 @@ from scanner.scanner import Scanner
 from strategy.strategy_engine import StrategyEngine
 from probability.probability_engine import ProbabilityEngine
 
+# 🔥 NEW
+from momentum.momentum_tracker import MomentumTracker
+
 
 def main():
 
@@ -21,6 +24,9 @@ def main():
 
     scanner = Scanner(strategy_engine, probability_engine)
 
+    # 🔥 NEW (لازم يكون برا أي loop)
+    momentum_tracker = MomentumTracker(window_size=4)
+
     # -------------------------------------------------
     # Load Market Data
     # -------------------------------------------------
@@ -35,7 +41,7 @@ def main():
     scan_result = scanner.run_scan(market_data)
 
     opportunities = scan_result.get("opportunities", [])
-    all_signals = scan_result.get("all_signals", [])  # 🔥 NEW
+    all_signals = scan_result.get("all_signals", [])
     metrics = scan_result.get("metrics", {})
 
     # -------------------------------------------------
@@ -49,15 +55,23 @@ def main():
     print(f"Probability Signals: {metrics.get('probability_count', 0)}")
 
     # ---------------------------------------------
-    # 🔥 ALL SIGNALS (الأهم)
+    # 🔥 ALL SIGNALS (Market View + Momentum)
     # ---------------------------------------------
     print("\n=== All Signals (Market View) ===")
 
     for s in all_signals:
         symbol = s.get("symbol", "N/A")
-        prob = s.get("probability", 0)
+        prob = float(s.get("probability", 0))
 
-        print(f"{symbol} → {round(prob, 3)}")
+        # 🔥 تحديث المومنتوم
+        momentum_tracker.update(symbol, prob)
+        info = momentum_tracker.get_momentum_info(symbol)
+
+        print(
+            f"{symbol} → {round(prob, 3)} "
+            f"({info['direction']}, strength={info['strength']}) "
+            f"↳ history: {info['history']}"
+        )
 
     # ---------------------------------------------
     # Opportunities (Filtered)

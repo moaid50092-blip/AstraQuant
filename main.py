@@ -30,6 +30,8 @@ def run_engine():
     # LOOP (النظام الحي)
     # -------------------------------------------------
 
+    TARGET_CYCLE_SECONDS = 60  # 🔥 بدل 10 → أقرب لشمعة 1 دقيقة
+
     while True:
 
         try:
@@ -65,33 +67,38 @@ def run_engine():
 
             for s in all_signals:
                 symbol = s.get("symbol", "N/A")
-                prob = s.get("probability", 0)
+                prob = float(s.get("probability", 0))
 
                 mom = s.get("momentum", "N/A")
-                strength = s.get("strength", 0)
+                strength = float(s.get("strength", 0))
                 history = s.get("history", [])
 
+                # 🔥 تنظيف الأرقام
+                prob_clean = round(prob, 3)
+                strength_clean = round(strength, 2)
+                history_clean = [round(x, 3) for x in history]
+
                 print(
-                    f"{symbol} → {round(prob, 3)} "
-                    f"({mom}, strength={strength})"
+                    f"{symbol} → {prob_clean} "
+                    f"({mom}, strength={strength_clean})"
                 )
-                print(f"   ↳ history: {history}")
+                print(f"   ↳ history: {history_clean}")
 
             print("\n=== Opportunities ===")
 
             for op in opportunities[:10]:
                 print({
                     "symbol": op.get("symbol", "N/A"),
-                    "probability": op.get("probability_score", "N/A"),
+                    "probability": round(float(op.get("probability_score", 0)), 3),
                     "momentum": op.get("momentum"),
-                    "strength": op.get("strength")
+                    "strength": round(float(op.get("strength", 0)), 2)
                 })
 
             # -----------------------------------------
-            # Cycle timing
+            # Cycle timing (ذكي)
             # -----------------------------------------
             elapsed = time.time() - start_time
-            sleep_time = max(10 - elapsed, 2)
+            sleep_time = max(TARGET_CYCLE_SECONDS - elapsed, 5)
 
             print(f"\n⏳ Next cycle in {round(sleep_time,1)}s")
             print("==============================\n")

@@ -1,5 +1,8 @@
 from scanner.fast_scanner import FastScanner
 
+# 🔥 NEW
+from momentum.momentum_tracker import MomentumTracker
+
 
 class Scanner:
 
@@ -12,6 +15,9 @@ class Scanner:
 
         # 🔥 minimum probability threshold
         self.min_probability = 0.52
+
+        # 🔥 NEW: momentum tracker (stateful)
+        self.momentum_tracker = MomentumTracker(window_size=4)
 
     # -------------------------------------------------
     # Run Full Scan
@@ -37,7 +43,9 @@ class Scanner:
             if df is None:
                 continue
 
+            # -----------------------------------------
             # Strategy Detection
+            # -----------------------------------------
             strategy_signal = self.strategy_engine.detect(symbol, df)
 
             if strategy_signal is None:
@@ -45,25 +53,42 @@ class Scanner:
 
             strategy_count += 1
 
+            # -----------------------------------------
             # Probability Evaluation
+            # -----------------------------------------
             probability = self.probability_engine.evaluate(strategy_signal)
 
             probability_count += 1
 
-            # 🔥 store ALL signals
+            # 🔥 NEW: update momentum
+            self.momentum_tracker.update(symbol, probability)
+            momentum_info = self.momentum_tracker.get_momentum_info(symbol)
+
+            # -----------------------------------------
+            # Store ALL signals (with momentum)
+            # -----------------------------------------
             all_signals.append({
                 "symbol": symbol,
-                "probability": float(probability)
+                "probability": float(probability),
+                "momentum": momentum_info["direction"],
+                "strength": momentum_info["strength"],
+                "history": momentum_info["history"]
             })
 
+            # -----------------------------------------
             # Filter opportunities
+            # -----------------------------------------
             if probability < self.min_probability:
                 continue
 
             opportunity = {
                 "symbol": symbol,
                 "signal": strategy_signal,
-                "probability_score": probability
+                "probability_score": probability,
+
+                # 🔥 OPTIONAL: include momentum in opportunity
+                "momentum": momentum_info["direction"],
+                "strength": momentum_info["strength"]
             }
 
             opportunities.append(opportunity)

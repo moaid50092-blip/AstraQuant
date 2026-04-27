@@ -9,8 +9,13 @@ from context.context_analyzer import ContextAnalyzer
 # 🔥 MTF
 from context.mtf_analyzer import MTFAnalyzer
 
-# 🔥 Decision V2
-from decision.decision_engine_v2 import DecisionEngineV2
+# 🔥 Decision (SAFE IMPORT)
+try:
+    from decision.decision_engine_v2 import DecisionEngineV2
+    USE_V2 = True
+except ImportError:
+    from decision.decision_engine import DecisionEngine
+    USE_V2 = False
 
 
 class Scanner:
@@ -28,8 +33,11 @@ class Scanner:
         self.context_analyzer = ContextAnalyzer()
         self.mtf_analyzer = MTFAnalyzer()
 
-        # 🔥 NEW
-        self.decision_engine_v2 = DecisionEngineV2()
+        # 🔥 Decision Engine (smart init)
+        if USE_V2:
+            self.decision_engine = DecisionEngineV2()
+        else:
+            self.decision_engine = DecisionEngine()
 
     # -------------------------------------------------
     def run_scan(self, market_data):
@@ -58,39 +66,29 @@ class Scanner:
             if df_1m is None:
                 continue
 
-            # -----------------------------------------
             # Strategy
-            # -----------------------------------------
             strategy_signal = self.strategy_engine.detect(symbol, df_1m)
             if strategy_signal is None:
                 continue
 
             strategy_count += 1
 
-            # -----------------------------------------
             # Probability
-            # -----------------------------------------
             probability = self.probability_engine.evaluate(strategy_signal)
             probability_count += 1
 
-            # -----------------------------------------
             # Momentum
-            # -----------------------------------------
             self.momentum_tracker.update(symbol, probability)
             momentum_info = self.momentum_tracker.get_momentum_info(symbol)
 
-            # -----------------------------------------
             # Context
-            # -----------------------------------------
             context = self.context_analyzer.analyze(
                 df_1m,
                 momentum_info["direction"],
                 momentum_info["strength"]
             )
 
-            # -----------------------------------------
             # MTF
-            # -----------------------------------------
             mtf = self.mtf_analyzer.analyze(
                 df_1m,
                 df_5m,
@@ -98,9 +96,9 @@ class Scanner:
             )
 
             # -----------------------------------------
-            # 🔥 Decision V2
+            # Decision (V2 or fallback)
             # -----------------------------------------
-            decision_v2 = self.decision_engine_v2.evaluate({
+            decision_input = {
                 "probability": probability,
                 "momentum": momentum_info["direction"],
                 "strength": momentum_info["strength"],
@@ -109,11 +107,13 @@ class Scanner:
                 "breakout": context["breakout"],
                 "setup": context["setup"],
                 "mtf": {
-                    "1m": mtf["trend_1m"],
-                    "5m": mtf["trend_5m"],
-                    "15m": mtf["trend_15m"]
+                    "1m": mtf.get("trend_1m"),
+                    "5m": mtf.get("trend_5m"),
+                    "15m": mtf.get("trend_15m")
                 }
-            })
+            }
+
+            decision = self.decision_engine.evaluate(decision_input)
 
             # -----------------------------------------
             # Store ALL signals
@@ -131,25 +131,25 @@ class Scanner:
                 "breakout": context["breakout"],
                 "setup": context["setup"],
 
-                "mtf_alignment": mtf["alignment"],
-                "mtf_trend_1m": mtf["trend_1m"],
-                "mtf_trend_5m": mtf["trend_5m"],
-                "mtf_trend_15m": mtf["trend_15m"],
+                "mtf_alignment": mtf.get("alignment"),
+                "mtf_trend_1m": mtf.get("trend_1m"),
+                "mtf_trend_5m": mtf.get("trend_5m"),
+                "mtf_trend_15m": mtf.get("trend_15m"),
 
-                # 🔥 Decision Output
-                "decision": decision_v2["decision"],
-                "direction": decision_v2["direction"],
-                "score": decision_v2["score"],
-                "reasons": decision_v2["reasons"]
+                # Decision
+                "decision": decision.get("decision"),
+                "direction": decision.get("direction"),
+                "score": decision.get("score"),
+                "reasons": decision.get("reasons"),
             })
 
             # -----------------------------------------
-            # Filter opportunities (اختياري الآن)
+            # Filter opportunities
             # -----------------------------------------
-            if decision_v2["decision"] != "ENTER":
+            if decision.get("decision") != "ENTER":
                 continue
 
-            opportunity = {
+            opportunities.append({
                 "symbol": symbol,
                 "signal": strategy_signal,
                 "probability_score": probability,
@@ -162,14 +162,11 @@ class Scanner:
                 "breakout": context["breakout"],
                 "setup": context["setup"],
 
-                "mtf_alignment": mtf["alignment"],
+                "mtf_alignment": mtf.get("alignment"),
 
-                # 🔥 Decision
-                "direction": decision_v2["direction"],
-                "score": decision_v2["score"]
-            }
-
-            opportunities.append(opportunity)
+                "direction": decision.get("direction"),
+                "score": decision.get("score"),
+            })
 
         return {
             "opportunities": opportunities,

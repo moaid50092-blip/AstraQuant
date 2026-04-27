@@ -30,7 +30,7 @@ def run_engine():
     # LOOP (النظام الحي)
     # -------------------------------------------------
 
-    TARGET_CYCLE_SECONDS = 60  # 🔥 بدل 10 → أقرب لشمعة 1 دقيقة
+    TARGET_CYCLE_SECONDS = 60
 
     while True:
 
@@ -69,20 +69,34 @@ def run_engine():
                 symbol = s.get("symbol", "N/A")
                 prob = float(s.get("probability", 0))
 
-                mom = s.get("momentum", "N/A")
+                mom = s.get("momentum", "neutral")
                 strength = float(s.get("strength", 0))
                 history = s.get("history", [])
 
-                # 🔥 تنظيف الأرقام
+                # تنظيف الأرقام
                 prob_clean = round(prob, 3)
                 strength_clean = round(strength, 2)
                 history_clean = [round(x, 3) for x in history]
 
+                # -----------------------------------------
+                # 🔥 Decision Hint (الذكاء الحقيقي)
+                # -----------------------------------------
+                if prob_clean >= 0.55 and mom == "up" and strength_clean >= 0.66:
+                    decision = "🔥 STRONG LONG"
+                elif prob_clean >= 0.52 and mom == "up":
+                    decision = "🟢 LONG BIAS"
+                elif prob_clean <= 0.45 and mom == "down" and strength_clean >= 0.66:
+                    decision = "🔥 STRONG SHORT"
+                elif prob_clean <= 0.48 and mom == "down":
+                    decision = "🔴 SHORT BIAS"
+                else:
+                    decision = "⚠️ NO EDGE"
+
                 print(
                     f"{symbol} → {prob_clean} "
-                    f"({mom}, strength={strength_clean})"
+                    f"({mom}, str={strength_clean}) | {decision}"
                 )
-                print(f"   ↳ history: {history_clean}")
+                print(f"   ↳ hist: {history_clean}")
 
             print("\n=== Opportunities ===")
 
@@ -95,7 +109,7 @@ def run_engine():
                 })
 
             # -----------------------------------------
-            # Cycle timing (ذكي)
+            # Cycle timing
             # -----------------------------------------
             elapsed = time.time() - start_time
             sleep_time = max(TARGET_CYCLE_SECONDS - elapsed, 5)
@@ -105,7 +119,7 @@ def run_engine():
 
             time.sleep(sleep_time)
 
-        except Exception as e:
+        except Exception:
             print("\n❌ ERROR DETECTED:")
             traceback.print_exc()
             print("\n🔁 Restarting cycle in 5 seconds...\n")

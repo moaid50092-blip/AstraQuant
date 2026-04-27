@@ -1,30 +1,12 @@
-# data/market_data.py
-
-"""
-Market Data Loader
-
-Responsible for retrieving market OHLCV data
-for all assets in the current Market Universe.
-
-In the reference implementation this module
-generates synthetic OHLCV data so the system
-can run without exchange connectivity.
-
-Later it can be replaced with a real exchange
-data connector (Binance / CCXT / Websocket etc.)
-without affecting the rest of the architecture.
-"""
+# data/market_data_loader.py
 
 import pandas as pd
 import numpy as np
-import time
 
 
 class MarketDataLoader:
 
     def __init__(self):
-
-        # length of synthetic dataset
         self.default_length = 200
 
     # -------------------------------------------------
@@ -33,39 +15,32 @@ class MarketDataLoader:
 
     def load_market_data(self, symbols):
 
-        """
-        Returns market data dictionary:
-
-        {
-            "BTC": dataframe,
-            "ETH": dataframe,
-            ...
-        }
-        """
-
         market_data = {}
 
         for symbol in symbols:
 
-            df = self._generate_fake_data(symbol)
+            df_1m = self._generate_fake_data(symbol)
 
-            if df is not None:
-                market_data[symbol] = df
+            if df_1m is None:
+                continue
+
+            # 🔥 إنشاء فريمات أعلى من نفس البيانات
+            df_5m = self._resample(df_1m, "5min")
+            df_15m = self._resample(df_1m, "15min")
+
+            market_data[symbol] = {
+                "1m": df_1m,
+                "5m": df_5m,
+                "15m": df_15m
+            }
 
         return market_data
 
     # -------------------------------------------------
-    # Synthetic Data Generator
+    # Synthetic Data
     # -------------------------------------------------
 
     def _generate_fake_data(self, symbol):
-
-        """
-        Generates synthetic OHLCV data.
-
-        This keeps the architecture functional
-        even without real exchange APIs.
-        """
 
         length = self.default_length
 
@@ -90,14 +65,25 @@ class MarketDataLoader:
         )
 
         df = pd.DataFrame({
-            "timestamp": timestamps,
             "open": opens,
             "high": highs,
             "low": lows,
             "close": closes,
             "volume": volumes
-        })
-
-        df.set_index("timestamp", inplace=True)
+        }, index=timestamps)
 
         return df
+
+    # -------------------------------------------------
+    # 🔥 Resampling (الذكاء الحقيقي هنا)
+    # -------------------------------------------------
+
+    def _resample(self, df, timeframe):
+
+        return df.resample(timeframe).agg({
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+            "volume": "sum"
+        }).dropna()

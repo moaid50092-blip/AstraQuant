@@ -6,6 +6,9 @@ from momentum.momentum_tracker import MomentumTracker
 # 🔥 Context
 from context.context_analyzer import ContextAnalyzer
 
+# 🔥 NEW MTF
+from context.mtf_analyzer import MTFAnalyzer
+
 
 class Scanner:
 
@@ -20,6 +23,7 @@ class Scanner:
 
         self.momentum_tracker = MomentumTracker(window_size=4)
         self.context_analyzer = ContextAnalyzer()
+        self.mtf_analyzer = MTFAnalyzer()
 
     # -------------------------------------------------
     def run_scan(self, market_data):
@@ -37,34 +41,59 @@ class Scanner:
 
         for symbol in candidate_symbols:
 
-            df = market_data.get(symbol)
-            if df is None:
+            frames = market_data.get(symbol)
+            if frames is None:
                 continue
 
-            # Strategy
-            strategy_signal = self.strategy_engine.detect(symbol, df)
+            # 🔥 unpack frames
+            df_1m = frames.get("1m")
+            df_5m = frames.get("5m")
+            df_15m = frames.get("15m")
+
+            if df_1m is None:
+                continue
+
+            # -----------------------------------------
+            # Strategy (on 1m فقط)
+            # -----------------------------------------
+            strategy_signal = self.strategy_engine.detect(symbol, df_1m)
             if strategy_signal is None:
                 continue
 
             strategy_count += 1
 
+            # -----------------------------------------
             # Probability
+            # -----------------------------------------
             probability = self.probability_engine.evaluate(strategy_signal)
             probability_count += 1
 
+            # -----------------------------------------
             # Momentum
+            # -----------------------------------------
             self.momentum_tracker.update(symbol, probability)
             momentum_info = self.momentum_tracker.get_momentum_info(symbol)
 
-            # 🔥 Context (مهم جدًا — الآن مع المومنتوم)
+            # -----------------------------------------
+            # Context (على 1m)
+            # -----------------------------------------
             context = self.context_analyzer.analyze(
-                df,
+                df_1m,
                 momentum_info["direction"],
                 momentum_info["strength"]
             )
 
             # -----------------------------------------
-            # Store ALL signals
+            # 🔥 MTF (الجديد)
+            # -----------------------------------------
+            mtf = self.mtf_analyzer.analyze(
+                df_1m,
+                df_5m,
+                df_15m
+            )
+
+            # -----------------------------------------
+            # 🔥 Store ALL signals
             # -----------------------------------------
             all_signals.append({
                 "symbol": symbol,
@@ -77,7 +106,13 @@ class Scanner:
                 "trend": context["trend"],
                 "zone": context["zone"],
                 "breakout": context["breakout"],
-                "setup": context["setup"]
+                "setup": context["setup"],
+
+                # 🔥 NEW
+                "mtf_alignment": mtf["alignment"],
+                "mtf_trend_1m": mtf["trend_1m"],
+                "mtf_trend_5m": mtf["trend_5m"],
+                "mtf_trend_15m": mtf["trend_15m"]
             })
 
             # -----------------------------------------
@@ -97,7 +132,10 @@ class Scanner:
                 "trend": context["trend"],
                 "zone": context["zone"],
                 "breakout": context["breakout"],
-                "setup": context["setup"]
+                "setup": context["setup"],
+
+                # 🔥 NEW
+                "mtf_alignment": mtf["alignment"]
             }
 
             opportunities.append(opportunity)

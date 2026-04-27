@@ -61,14 +61,20 @@ def run_engine():
                 breakout = s.get("breakout", False)
                 setup = s.get("setup", "unknown")
 
+                # 🔥 MTF
+                mtf_alignment = s.get("mtf_alignment", "unknown")
+                t1 = s.get("mtf_trend_1m", "unknown")
+                t5 = s.get("mtf_trend_5m", "unknown")
+                t15 = s.get("mtf_trend_15m", "unknown")
+
                 # تنظيف
                 prob_clean = round(prob, 3)
                 strength_clean = round(strength, 2)
                 history_clean = [round(x, 3) for x in history]
 
-                # 🔥 عرض setup بشكل واضح
+                # 🔥 Setup Label
                 if setup == "real":
-                    setup_label = "🔥 REAL SETUP"
+                    setup_label = "🔥 REAL"
                 elif setup == "weak":
                     setup_label = "🟡 WEAK"
                 elif setup == "fake":
@@ -76,13 +82,25 @@ def run_engine():
                 else:
                     setup_label = "⚪ UNKNOWN"
 
+                # 🔥 MTF Label
+                if mtf_alignment == "strong":
+                    mtf_label = "🔥 STRONG"
+                elif mtf_alignment == "medium":
+                    mtf_label = "🟡 MEDIUM"
+                else:
+                    mtf_label = "⚠️ WEAK"
+
                 print(
                     f"{symbol} → {prob_clean} "
-                    f"({mom}, str={strength_clean}) | {setup_label}"
+                    f"({mom}, str={strength_clean}) | {setup_label} | {mtf_label}"
                 )
 
                 print(
                     f"   ↳ trend: {trend} | zone: {zone} | breakout: {breakout}"
+                )
+
+                print(
+                    f"   ↳ MTF: 1m={t1} | 5m={t5} | 15m={t15}"
                 )
 
                 print(f"   ↳ hist: {history_clean}")
@@ -95,7 +113,8 @@ def run_engine():
                     "probability": round(float(op.get("probability_score", 0)), 3),
                     "momentum": op.get("momentum"),
                     "strength": round(float(op.get("strength", 0)), 2),
-                    "setup": op.get("setup")
+                    "setup": op.get("setup"),
+                    "mtf_alignment": op.get("mtf_alignment")
                 })
 
             elapsed = time.time() - start_time

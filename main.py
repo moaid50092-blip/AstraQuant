@@ -67,6 +67,12 @@ def run_engine():
                 t5 = s.get("mtf_trend_5m", "unknown")
                 t15 = s.get("mtf_trend_15m", "unknown")
 
+                # 🔥 Decision V2
+                decision = s.get("decision", "N/A")
+                direction = s.get("direction", "")
+                score = s.get("score", 0)
+                reasons = s.get("reasons", [])
+
                 # تنظيف
                 prob_clean = round(prob, 3)
                 strength_clean = round(strength, 2)
@@ -90,9 +96,17 @@ def run_engine():
                 else:
                     mtf_label = "⚠️ WEAK"
 
+                # 🔥 Decision Label (ذكي ومختصر)
+                if decision == "ENTER":
+                    decision_label = f"🚀 ENTER {direction}"
+                elif decision == "WATCH":
+                    decision_label = "👀 WATCH"
+                else:
+                    decision_label = "❌ IGNORE"
+
                 print(
                     f"{symbol} → {prob_clean} "
-                    f"({mom}, str={strength_clean}) | {setup_label} | {mtf_label}"
+                    f"({mom}, str={strength_clean}) | {setup_label} | {mtf_label} | {decision_label}"
                 )
 
                 print(
@@ -105,16 +119,18 @@ def run_engine():
 
                 print(f"   ↳ hist: {history_clean}")
 
+                # 🔥 سبب القرار (بدون إطالة)
+                if reasons:
+                    print(f"   ↳ reason: {', '.join(reasons[:3])}")
+
             print("\n=== Opportunities ===")
 
             for op in opportunities[:10]:
                 print({
                     "symbol": op.get("symbol", "N/A"),
                     "probability": round(float(op.get("probability_score", 0)), 3),
-                    "momentum": op.get("momentum"),
-                    "strength": round(float(op.get("strength", 0)), 2),
-                    "setup": op.get("setup"),
-                    "mtf_alignment": op.get("mtf_alignment")
+                    "direction": op.get("direction"),
+                    "score": op.get("score")
                 })
 
             elapsed = time.time() - start_time

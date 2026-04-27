@@ -6,8 +6,11 @@ from momentum.momentum_tracker import MomentumTracker
 # 🔥 Context
 from context.context_analyzer import ContextAnalyzer
 
-# 🔥 NEW MTF
+# 🔥 MTF
 from context.mtf_analyzer import MTFAnalyzer
+
+# 🔥 Decision V2
+from decision.decision_engine_v2 import DecisionEngineV2
 
 
 class Scanner:
@@ -24,6 +27,9 @@ class Scanner:
         self.momentum_tracker = MomentumTracker(window_size=4)
         self.context_analyzer = ContextAnalyzer()
         self.mtf_analyzer = MTFAnalyzer()
+
+        # 🔥 NEW
+        self.decision_engine_v2 = DecisionEngineV2()
 
     # -------------------------------------------------
     def run_scan(self, market_data):
@@ -45,7 +51,6 @@ class Scanner:
             if frames is None:
                 continue
 
-            # 🔥 unpack frames
             df_1m = frames.get("1m")
             df_5m = frames.get("5m")
             df_15m = frames.get("15m")
@@ -54,7 +59,7 @@ class Scanner:
                 continue
 
             # -----------------------------------------
-            # Strategy (on 1m فقط)
+            # Strategy
             # -----------------------------------------
             strategy_signal = self.strategy_engine.detect(symbol, df_1m)
             if strategy_signal is None:
@@ -75,7 +80,7 @@ class Scanner:
             momentum_info = self.momentum_tracker.get_momentum_info(symbol)
 
             # -----------------------------------------
-            # Context (على 1m)
+            # Context
             # -----------------------------------------
             context = self.context_analyzer.analyze(
                 df_1m,
@@ -84,7 +89,7 @@ class Scanner:
             )
 
             # -----------------------------------------
-            # 🔥 MTF (الجديد)
+            # MTF
             # -----------------------------------------
             mtf = self.mtf_analyzer.analyze(
                 df_1m,
@@ -93,7 +98,25 @@ class Scanner:
             )
 
             # -----------------------------------------
-            # 🔥 Store ALL signals
+            # 🔥 Decision V2
+            # -----------------------------------------
+            decision_v2 = self.decision_engine_v2.evaluate({
+                "probability": probability,
+                "momentum": momentum_info["direction"],
+                "strength": momentum_info["strength"],
+                "trend": context["trend"],
+                "zone": context["zone"],
+                "breakout": context["breakout"],
+                "setup": context["setup"],
+                "mtf": {
+                    "1m": mtf["trend_1m"],
+                    "5m": mtf["trend_5m"],
+                    "15m": mtf["trend_15m"]
+                }
+            })
+
+            # -----------------------------------------
+            # Store ALL signals
             # -----------------------------------------
             all_signals.append({
                 "symbol": symbol,
@@ -108,17 +131,22 @@ class Scanner:
                 "breakout": context["breakout"],
                 "setup": context["setup"],
 
-                # 🔥 NEW
                 "mtf_alignment": mtf["alignment"],
                 "mtf_trend_1m": mtf["trend_1m"],
                 "mtf_trend_5m": mtf["trend_5m"],
-                "mtf_trend_15m": mtf["trend_15m"]
+                "mtf_trend_15m": mtf["trend_15m"],
+
+                # 🔥 Decision Output
+                "decision": decision_v2["decision"],
+                "direction": decision_v2["direction"],
+                "score": decision_v2["score"],
+                "reasons": decision_v2["reasons"]
             })
 
             # -----------------------------------------
-            # Filter opportunities
+            # Filter opportunities (اختياري الآن)
             # -----------------------------------------
-            if probability < self.min_probability:
+            if decision_v2["decision"] != "ENTER":
                 continue
 
             opportunity = {
@@ -134,8 +162,11 @@ class Scanner:
                 "breakout": context["breakout"],
                 "setup": context["setup"],
 
-                # 🔥 NEW
-                "mtf_alignment": mtf["alignment"]
+                "mtf_alignment": mtf["alignment"],
+
+                # 🔥 Decision
+                "direction": decision_v2["direction"],
+                "score": decision_v2["score"]
             }
 
             opportunities.append(opportunity)

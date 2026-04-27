@@ -16,19 +16,12 @@ class Scanner:
 
         self.fast_scanner = FastScanner(candidate_count=candidate_count)
 
-        # 🔥 minimum probability threshold
         self.min_probability = 0.52
 
-        # 🔥 Momentum tracker (stateful)
         self.momentum_tracker = MomentumTracker(window_size=4)
-
-        # 🔥 Context analyzer
         self.context_analyzer = ContextAnalyzer()
 
     # -------------------------------------------------
-    # Run Full Scan
-    # -------------------------------------------------
-
     def run_scan(self, market_data):
 
         ranked_assets = self.fast_scanner.rank_assets(market_data)
@@ -45,59 +38,30 @@ class Scanner:
         for symbol in candidate_symbols:
 
             df = market_data.get(symbol)
-
             if df is None:
                 continue
 
-            # -----------------------------------------
-            # Strategy Detection
-            # -----------------------------------------
+            # Strategy
             strategy_signal = self.strategy_engine.detect(symbol, df)
-
             if strategy_signal is None:
                 continue
 
             strategy_count += 1
 
-            # -----------------------------------------
-            # Probability Evaluation
-            # -----------------------------------------
+            # Probability
             probability = self.probability_engine.evaluate(strategy_signal)
-
             probability_count += 1
 
-            # -----------------------------------------
-            # 🔥 Momentum
-            # -----------------------------------------
+            # Momentum
             self.momentum_tracker.update(symbol, probability)
             momentum_info = self.momentum_tracker.get_momentum_info(symbol)
 
-            # -----------------------------------------
-            # 🔥 Context
-            # -----------------------------------------
-            context = self.context_analyzer.analyze(df)
-
-            # -----------------------------------------
-            # 🔥 Real vs Fake Detector (Observation Mode)
-            # -----------------------------------------
-            setup_quality = "unclear"
-
-            if (
-                momentum_info["direction"] == "up"
-                and momentum_info["strength"] >= 0.67
-                and context["trend"] == "up"
-                and context["zone"] != "resistance"
-            ):
-                setup_quality = "real"
-
-            elif (
-                momentum_info["direction"] == "up"
-                and (
-                    context["zone"] == "resistance"
-                    or context["trend"] == "range"
-                )
-            ):
-                setup_quality = "fake"
+            # 🔥 Context (مهم جدًا — الآن مع المومنتوم)
+            context = self.context_analyzer.analyze(
+                df,
+                momentum_info["direction"],
+                momentum_info["strength"]
+            )
 
             # -----------------------------------------
             # Store ALL signals
@@ -106,18 +70,14 @@ class Scanner:
                 "symbol": symbol,
                 "probability": float(probability),
 
-                # Momentum
                 "momentum": momentum_info["direction"],
                 "strength": momentum_info["strength"],
                 "history": momentum_info["history"],
 
-                # Context
                 "trend": context["trend"],
                 "zone": context["zone"],
                 "breakout": context["breakout"],
-
-                # Setup quality
-                "setup": setup_quality
+                "setup": context["setup"]
             })
 
             # -----------------------------------------
@@ -131,17 +91,13 @@ class Scanner:
                 "signal": strategy_signal,
                 "probability_score": probability,
 
-                # Momentum
                 "momentum": momentum_info["direction"],
                 "strength": momentum_info["strength"],
 
-                # Context
                 "trend": context["trend"],
                 "zone": context["zone"],
                 "breakout": context["breakout"],
-
-                # Setup
-                "setup": setup_quality
+                "setup": context["setup"]
             }
 
             opportunities.append(opportunity)

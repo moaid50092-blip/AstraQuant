@@ -9,9 +9,9 @@ class MarketDataLoader:
 
     def __init__(self):
 
-        # 🔐 حط مفاتيحك هون (لا تشاركهم مع أحد)
-        API_KEY = "GUZ3rnXueopAr6FKtrAs0Xv2U1euDZ9OHhMwUMwdPvbih2aCczPdw98WoUkQznGc"
-        API_SECRET = "Z5Ll72YpykgRITrhVjm4CTtMVaCgvLPRZLP2RiBNedBFVEMV5SiB3Td62YyvGmF8"
+        # 🔐 ضع مفاتيحك هنا (أو استخدم متغيرات بيئة)
+        API_KEY = ""      # مثال: "GUZ3rnXueopAr6FKtrAs0Xv2U1euDZ9OHhMwUMwdPvbih2aCczPdw98WoUkQznGc"
+        API_SECRET = ""   # مثال: "Z5Ll72YpykgRITrhVjm4CTtMVaCgvLPRZLP2RiBNedBFVEMV5SiB3Td62YyvGmF8"
 
         self.client = Client(API_KEY, API_SECRET)
 
@@ -28,15 +28,20 @@ class MarketDataLoader:
         for symbol in symbols:
 
             try:
-                df_1m = self._get_binance_data(symbol, "1m", 200)
+                df_1m = self._get_binance_data(symbol, "1m", self.default_length)
 
+                # ❌ إذا ما في بيانات → تجاهل العملة (بدون fake)
                 if df_1m is None or df_1m.empty:
-                    raise Exception("No data")
+                    print(f"❌ No REAL data for {symbol} — skipped")
+                    continue
 
-            except Exception:
-                # 🔥 fallback (في حال فشل الاتصال)
-                df_1m = self._generate_fake_data(symbol)
+                print(f"✅ REAL data loaded for {symbol}")
 
+            except Exception as e:
+                print(f"❌ Error fetching {symbol}: {e}")
+                continue
+
+            # 🔥 بناء الفريمات الأعلى من بيانات حقيقية فقط
             df_5m = self._resample(df_1m, "5min")
             df_15m = self._resample(df_1m, "15min")
 
@@ -61,6 +66,9 @@ class MarketDataLoader:
                 limit=limit
             )
 
+            if klines is None or len(klines) == 0:
+                return None
+
             df = pd.DataFrame(klines, columns=[
                 "timestamp", "open", "high", "low", "close", "volume",
                 "close_time", "qav", "num_trades",
@@ -77,14 +85,19 @@ class MarketDataLoader:
 
             return df
 
-        except Exception:
+        except Exception as e:
+            print(f"⚠️ Binance fetch failed for {symbol}: {e}")
             return None
 
     # -------------------------------------------------
-    # Synthetic Data (fallback)
+    # ⚠️ Synthetic Data (معطّل افتراضيًا)
     # -------------------------------------------------
 
     def _generate_fake_data(self, symbol):
+        """
+        ⚠️ لا يتم استخدامه حاليًا.
+        احتفظنا به فقط للاختبار اليدوي إذا أردت لاحقًا.
+        """
 
         length = self.default_length
 

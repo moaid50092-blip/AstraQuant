@@ -2,11 +2,19 @@
 
 import pandas as pd
 import numpy as np
+from binance.client import Client
 
 
 class MarketDataLoader:
 
     def __init__(self):
+
+        # 🔐 حط مفاتيحك هون (لا تشاركهم مع أحد)
+        API_KEY = "GUZ3rnXueopAr6FKtrAs0Xv2U1euDZ9OHhMwUMwdPvbih2aCczPdw98WoUkQznGc"
+        API_SECRET = "Z5Ll72YpykgRITrhVjm4CTtMVaCgvLPRZLP2RiBNedBFVEMV5SiB3Td62YyvGmF8"
+
+        self.client = Client(API_KEY, API_SECRET)
+
         self.default_length = 200
 
     # -------------------------------------------------
@@ -19,12 +27,16 @@ class MarketDataLoader:
 
         for symbol in symbols:
 
-            df_1m = self._generate_fake_data(symbol)
+            try:
+                df_1m = self._get_binance_data(symbol, "1m", 200)
 
-            if df_1m is None:
-                continue
+                if df_1m is None or df_1m.empty:
+                    raise Exception("No data")
 
-            # 🔥 إنشاء فريمات أعلى من نفس البيانات
+            except Exception:
+                # 🔥 fallback (في حال فشل الاتصال)
+                df_1m = self._generate_fake_data(symbol)
+
             df_5m = self._resample(df_1m, "5min")
             df_15m = self._resample(df_1m, "15min")
 
@@ -37,7 +49,39 @@ class MarketDataLoader:
         return market_data
 
     # -------------------------------------------------
-    # Synthetic Data
+    # 🔥 Binance Data
+    # -------------------------------------------------
+
+    def _get_binance_data(self, symbol, interval, limit=200):
+
+        try:
+            klines = self.client.get_klines(
+                symbol=symbol,
+                interval=interval,
+                limit=limit
+            )
+
+            df = pd.DataFrame(klines, columns=[
+                "timestamp", "open", "high", "low", "close", "volume",
+                "close_time", "qav", "num_trades",
+                "taker_base_vol", "taker_quote_vol", "ignore"
+            ])
+
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+
+            df = df[["timestamp", "open", "high", "low", "close", "volume"]]
+
+            df.set_index("timestamp", inplace=True)
+
+            df = df.astype(float)
+
+            return df
+
+        except Exception:
+            return None
+
+    # -------------------------------------------------
+    # Synthetic Data (fallback)
     # -------------------------------------------------
 
     def _generate_fake_data(self, symbol):
@@ -75,7 +119,7 @@ class MarketDataLoader:
         return df
 
     # -------------------------------------------------
-    # 🔥 Resampling (الذكاء الحقيقي هنا)
+    # Resampling
     # -------------------------------------------------
 
     def _resample(self, df, timeframe):

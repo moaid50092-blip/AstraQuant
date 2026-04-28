@@ -3,13 +3,16 @@ from scanner.fast_scanner import FastScanner
 # 🔥 Momentum
 from momentum.momentum_tracker import MomentumTracker
 
-# 🔥 Context
+# 🔥 Context (OLD)
 from context.context_analyzer import ContextAnalyzer
+
+# 🔥 Context V2 (NEW Overlay)
+from context.context_analyzer_v2 import ContextAnalyzerV2
 
 # 🔥 MTF
 from context.mtf_analyzer import MTFAnalyzer
 
-# 🔥 Decision V2 (تصحيح الاستيراد)
+# 🔥 Decision
 from decision.decision_engine import DecisionEngineV2
 
 
@@ -25,10 +28,15 @@ class Scanner:
         self.min_probability = 0.52
 
         self.momentum_tracker = MomentumTracker(window_size=4)
+
+        # OLD
         self.context_analyzer = ContextAnalyzer()
+
+        # 🔥 NEW (Overlay فقط)
+        self.context_v2 = ContextAnalyzerV2()
+
         self.mtf_analyzer = MTFAnalyzer()
 
-        # 🔥 Decision Engine V2
         self.decision_engine = DecisionEngineV2()
 
     # -------------------------------------------------
@@ -80,12 +88,22 @@ class Scanner:
             momentum_info = self.momentum_tracker.get_momentum_info(symbol)
 
             # -----------------------------------------
-            # Context
+            # Context (OLD)
             # -----------------------------------------
             context = self.context_analyzer.analyze(
                 df_1m,
                 momentum_info["direction"],
                 momentum_info["strength"]
+            )
+
+            # -----------------------------------------
+            # 🔥 Context V2 (Overlay)
+            # -----------------------------------------
+            context_v2 = self.context_v2.analyze(
+                df_1m,
+                momentum_info["direction"],
+                momentum_info["strength"],
+                context
             )
 
             # -----------------------------------------
@@ -98,7 +116,7 @@ class Scanner:
             )
 
             # -----------------------------------------
-            # 🔥 Decision Engine V2
+            # Decision
             # -----------------------------------------
             decision = self.decision_engine.evaluate({
                 "probability": probability,
@@ -136,15 +154,19 @@ class Scanner:
                 "mtf_trend_5m": mtf["trend_5m"],
                 "mtf_trend_15m": mtf["trend_15m"],
 
-                # 🔥 Decision Output
+                # 🔥 Decision
                 "decision": decision["decision"],
                 "direction": decision["direction"],
                 "score": decision["score"],
-                "reasons": decision["reasons"]
+                "reasons": decision["reasons"],
+
+                # 🔥 NEW (Overlay فقط)
+                "confidence_score": context_v2["confidence_score"],
+                "confidence_label": context_v2["confidence_label"]
             })
 
             # -----------------------------------------
-            # Filter opportunities (فقط ENTER)
+            # Filter
             # -----------------------------------------
             if decision["decision"] != "ENTER":
                 continue
@@ -164,9 +186,11 @@ class Scanner:
 
                 "mtf_alignment": mtf["alignment"],
 
-                # 🔥 Decision
                 "direction": decision["direction"],
-                "score": decision["score"]
+                "score": decision["score"],
+
+                # 🔥 NEW
+                "confidence": context_v2["confidence_label"]
             }
 
             opportunities.append(opportunity)

@@ -1,5 +1,3 @@
-# main.py
-
 import time
 import traceback
 
@@ -67,18 +65,22 @@ def run_engine():
                 t5 = s.get("mtf_trend_5m", "unknown")
                 t15 = s.get("mtf_trend_15m", "unknown")
 
-                # 🔥 Decision V2
+                # 🔥 Decision
                 decision = s.get("decision", "N/A")
                 direction = s.get("direction", "")
                 score = s.get("score", 0)
                 reasons = s.get("reasons", [])
+
+                # 🔥 NEW Confidence
+                confidence = s.get("confidence_label", "")
+                confidence_score = round(s.get("confidence_score", 0), 2)
 
                 # تنظيف
                 prob_clean = round(prob, 3)
                 strength_clean = round(strength, 2)
                 history_clean = [round(x, 3) for x in history]
 
-                # 🔥 Setup Label
+                # Setup Label
                 if setup == "real":
                     setup_label = "🔥 REAL"
                 elif setup == "weak":
@@ -88,7 +90,7 @@ def run_engine():
                 else:
                     setup_label = "⚪ UNKNOWN"
 
-                # 🔥 MTF Label
+                # MTF Label
                 if mtf_alignment == "strong":
                     mtf_label = "🔥 STRONG"
                 elif mtf_alignment == "medium":
@@ -96,7 +98,7 @@ def run_engine():
                 else:
                     mtf_label = "⚠️ WEAK"
 
-                # 🔥 Decision Label (ذكي ومختصر)
+                # Decision Label
                 if decision == "ENTER":
                     decision_label = f"🚀 ENTER {direction}"
                 elif decision == "WATCH":
@@ -104,9 +106,17 @@ def run_engine():
                 else:
                     decision_label = "❌ IGNORE"
 
+                # 🔥 Confidence Label (ذكي وخفيف)
+                if confidence == "HIGH":
+                    conf_label = f"🧠 HIGH ({confidence_score})"
+                elif confidence == "MEDIUM":
+                    conf_label = f"🟡 MED ({confidence_score})"
+                else:
+                    conf_label = f"⚠️ LOW ({confidence_score})"
+
                 print(
                     f"{symbol} → {prob_clean} "
-                    f"({mom}, str={strength_clean}) | {setup_label} | {mtf_label} | {decision_label}"
+                    f"({mom}, str={strength_clean}) | {setup_label} | {mtf_label} | {decision_label} | {conf_label}"
                 )
 
                 print(
@@ -119,7 +129,6 @@ def run_engine():
 
                 print(f"   ↳ hist: {history_clean}")
 
-                # 🔥 سبب القرار (بدون إطالة)
                 if reasons:
                     print(f"   ↳ reason: {', '.join(reasons[:3])}")
 
@@ -130,7 +139,8 @@ def run_engine():
                     "symbol": op.get("symbol", "N/A"),
                     "probability": round(float(op.get("probability_score", 0)), 3),
                     "direction": op.get("direction"),
-                    "score": op.get("score")
+                    "score": op.get("score"),
+                    "confidence": op.get("confidence")
                 })
 
             elapsed = time.time() - start_time

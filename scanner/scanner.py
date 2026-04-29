@@ -1,19 +1,15 @@
 from scanner.fast_scanner import FastScanner
 
-# 🔥 Momentum
 from momentum.momentum_tracker import MomentumTracker
-
-# 🔥 Context (OLD)
 from context.context_analyzer import ContextAnalyzer
-
-# 🔥 Context V2 (NEW Overlay)
 from context.context_analyzer_v2 import ContextAnalyzerV2
-
-# 🔥 MTF
 from context.mtf_analyzer import MTFAnalyzer
 
-# 🔥 Decision
-from decision.decision_engine import DecisionEngineV2
+# 🔥 NEW DECISION ENGINE
+from decision.decision_engine_v3 import DecisionEngineV3
+
+# 🔥 RANGE ENGINE
+from context.range_engine_v2 import RangeEngineV2
 
 
 class Scanner:
@@ -29,15 +25,15 @@ class Scanner:
 
         self.momentum_tracker = MomentumTracker(window_size=4)
 
-        # OLD
         self.context_analyzer = ContextAnalyzer()
-
-        # 🔥 NEW (Overlay فقط)
         self.context_v2 = ContextAnalyzerV2()
 
         self.mtf_analyzer = MTFAnalyzer()
 
-        self.decision_engine = DecisionEngineV2()
+        # 🔥 UPDATED
+        self.decision_engine = DecisionEngineV3()
+
+        self.range_engine = RangeEngineV2()
 
     # -------------------------------------------------
     def run_scan(self, market_data):
@@ -88,7 +84,7 @@ class Scanner:
             momentum_info = self.momentum_tracker.get_momentum_info(symbol)
 
             # -----------------------------------------
-            # Context (OLD)
+            # Context
             # -----------------------------------------
             context = self.context_analyzer.analyze(
                 df_1m,
@@ -96,15 +92,28 @@ class Scanner:
                 momentum_info["strength"]
             )
 
-            # -----------------------------------------
-            # 🔥 Context V2 (Overlay)
-            # -----------------------------------------
             context_v2 = self.context_v2.analyze(
                 df_1m,
                 momentum_info["direction"],
                 momentum_info["strength"],
                 context
             )
+
+            # -----------------------------------------
+            # RANGE (SAFE)
+            # -----------------------------------------
+            range_info = self.range_engine.analyze(
+                df_1m,
+                momentum_info["direction"]
+            )
+
+            if range_info is None:
+                range_info = {
+                    "range_active": False,
+                    "signal": None,
+                    "confidence": 0,
+                    "location": None
+                }
 
             # -----------------------------------------
             # MTF
@@ -116,7 +125,7 @@ class Scanner:
             )
 
             # -----------------------------------------
-            # Decision
+            # 🔥 Decision (V3)
             # -----------------------------------------
             decision = self.decision_engine.evaluate({
                 "probability": probability,
@@ -130,7 +139,13 @@ class Scanner:
                     "1m": mtf["trend_1m"],
                     "5m": mtf["trend_5m"],
                     "15m": mtf["trend_15m"]
-                }
+                },
+
+                # 🔥 RANGE DATA
+                "range_active": range_info["range_active"],
+                "range_signal": range_info["signal"],
+                "range_confidence": range_info["confidence"],
+                "range_location": range_info["location"]
             })
 
             # -----------------------------------------
@@ -158,11 +173,16 @@ class Scanner:
                 "decision": decision["decision"],
                 "direction": decision["direction"],
                 "score": decision["score"],
-                "reasons": decision["reasons"],
+                "reasons": [],  # 🔥 avoid crash
 
-                # 🔥 NEW (Overlay فقط)
+                # 🔥 Confidence
                 "confidence_score": context_v2["confidence_score"],
-                "confidence_label": context_v2["confidence_label"]
+                "confidence_label": context_v2["confidence_label"],
+
+                # 🔥 RANGE
+                "range_active": range_info["range_active"],
+                "range_signal": range_info["signal"],
+                "range_confidence": range_info["confidence"]
             })
 
             # -----------------------------------------
@@ -189,8 +209,10 @@ class Scanner:
                 "direction": decision["direction"],
                 "score": decision["score"],
 
-                # 🔥 NEW
-                "confidence": context_v2["confidence_label"]
+                "confidence": context_v2["confidence_label"],
+
+                # 🔥 RANGE
+                "range_signal": range_info["signal"]
             }
 
             opportunities.append(opportunity)

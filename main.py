@@ -71,9 +71,14 @@ def run_engine():
                 score = s.get("score", 0)
                 reasons = s.get("reasons", [])
 
-                # 🔥 NEW Confidence
+                # 🔥 Confidence
                 confidence = s.get("confidence_label", "")
                 confidence_score = round(s.get("confidence_score", 0), 2)
+
+                # 🔥 RANGE (NEW)
+                range_active = s.get("range_active", False)
+                range_signal = s.get("range_signal", None)
+                range_conf = round(s.get("range_confidence", 0), 2)
 
                 # تنظيف
                 prob_clean = round(prob, 3)
@@ -106,7 +111,7 @@ def run_engine():
                 else:
                     decision_label = "❌ IGNORE"
 
-                # 🔥 Confidence Label (ذكي وخفيف)
+                # Confidence Label
                 if confidence == "HIGH":
                     conf_label = f"🧠 HIGH ({confidence_score})"
                 elif confidence == "MEDIUM":
@@ -114,19 +119,22 @@ def run_engine():
                 else:
                     conf_label = f"⚠️ LOW ({confidence_score})"
 
+                # 🔥 Range Label (احترافي)
+                if range_active:
+                    if range_signal:
+                        range_label = f"📦 RANGE → {range_signal} ({range_conf})"
+                    else:
+                        range_label = "📦 RANGE"
+                else:
+                    range_label = ""
+
                 print(
                     f"{symbol} → {prob_clean} "
-                    f"({mom}, str={strength_clean}) | {setup_label} | {mtf_label} | {decision_label} | {conf_label}"
+                    f"({mom}, str={strength_clean}) | {setup_label} | {mtf_label} | {decision_label} | {conf_label} {range_label}"
                 )
 
-                print(
-                    f"   ↳ trend: {trend} | zone: {zone} | breakout: {breakout}"
-                )
-
-                print(
-                    f"   ↳ MTF: 1m={t1} | 5m={t5} | 15m={t15}"
-                )
-
+                print(f"   ↳ trend: {trend} | zone: {zone} | breakout: {breakout}")
+                print(f"   ↳ MTF: 1m={t1} | 5m={t5} | 15m={t15}")
                 print(f"   ↳ hist: {history_clean}")
 
                 if reasons:

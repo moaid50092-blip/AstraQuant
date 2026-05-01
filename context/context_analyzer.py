@@ -1,102 +1,91 @@
-# context/context_analyzer.py
+def analyze(self, df, momentum=None, strength=0.0):
 
-import numpy as np
+    if df is None or len(df) < 5:  # 🔥 بدل 20
+        return self._empty()
 
+    # 🔥 adaptive lookback
+    lookback = min(self.lookback, len(df))
 
-class ContextAnalyzer:
+    highs = df["high"].values[-lookback:]
+    lows = df["low"].values[-lookback:]
+    closes = df["close"].values
 
-    def __init__(self, lookback=20):
-        self.lookback = lookback
+    current_price = closes[-1]
 
-    def analyze(self, df, momentum=None, strength=0.0):
+    # -----------------------------
+    # Trend (مرن)
+    # -----------------------------
+    recent_closes = closes[-min(5, len(closes)):]
 
-        if df is None or len(df) < self.lookback:
-            return self._empty()
-
-        highs = df["high"].values[-self.lookback:]
-        lows = df["low"].values[-self.lookback:]
-        closes = df["close"].values
-
-        current_price = closes[-1]
-
-        # -----------------------------
-        # 1) Trend (محسن)
-        # -----------------------------
-        recent_closes = closes[-5:]
-
+    if len(recent_closes) >= 3:
         if all(x < y for x, y in zip(recent_closes, recent_closes[1:])):
             trend = "up"
         elif all(x > y for x, y in zip(recent_closes, recent_closes[1:])):
             trend = "down"
         else:
             trend = "range"
+    else:
+        trend = "range"
 
-        # -----------------------------
-        # 2) Zone
-        # -----------------------------
-        highest = np.max(highs)
-        lowest = np.min(lows)
+    # -----------------------------
+    # Zone
+    # -----------------------------
+    highest = np.max(highs)
+    lowest = np.min(lows)
 
-        range_size = highest - lowest if highest != lowest else 1
-        position = (current_price - lowest) / range_size
+    range_size = highest - lowest if highest != lowest else 1
+    position = (current_price - lowest) / range_size
 
-        if position <= 0.3:
-            zone = "low"
-        elif position >= 0.7:
-            zone = "high"
-        else:
-            zone = "middle"
+    if position <= 0.3:
+        zone = "low"
+    elif position >= 0.7:
+        zone = "high"
+    else:
+        zone = "middle"
 
-        # -----------------------------
-        # 3) Breakout (محسن)
-        # -----------------------------
+    # -----------------------------
+    # Breakout
+    # -----------------------------
+    if len(highs) >= 2:
         prev_high = np.max(highs[:-1])
         prev_low = np.min(lows[:-1])
 
         breakout_up = current_price > prev_high
         breakout_down = current_price < prev_low
+    else:
+        breakout_up = breakout_down = False
 
-        breakout = breakout_up or breakout_down
+    breakout = breakout_up or breakout_down
 
-        # -----------------------------
-        # 4) Setup Classification 🔥
-        # -----------------------------
-        setup = "unknown"
+    # -----------------------------
+    # Setup
+    # -----------------------------
+    setup = "unknown"
 
-        if momentum is None:
-            setup = "unknown"
+    if momentum is not None:
 
-        else:
-            if momentum == "up":
-                if strength >= 0.6 and breakout_up:
-                    setup = "real"
-                elif strength >= 0.4:
-                    setup = "weak"
-                else:
-                    setup = "fake"
-
-            elif momentum == "down":
-                if strength >= 0.6 and breakout_down:
-                    setup = "real"
-                elif strength >= 0.4:
-                    setup = "weak"
-                else:
-                    setup = "fake"
-
+        if momentum == "up":
+            if strength >= 0.6 and breakout_up:
+                setup = "real"
+            elif strength >= 0.4:
+                setup = "weak"
             else:
                 setup = "fake"
 
-        return {
-            "trend": trend,
-            "zone": zone,
-            "breakout": breakout,
-            "setup": setup
-        }
+        elif momentum == "down":
+            if strength >= 0.6 and breakout_down:
+                setup = "real"
+            elif strength >= 0.4:
+                setup = "weak"
+            else:
+                setup = "fake"
 
-    def _empty(self):
-        return {
-            "trend": "unknown",
-            "zone": "unknown",
-            "breakout": False,
-            "setup": "unknown"
-        }
+        else:
+            setup = "fake"
+
+    return {
+        "trend": trend,
+        "zone": zone,
+        "breakout": breakout,
+        "setup": setup
+    }

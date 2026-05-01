@@ -57,7 +57,7 @@ class StrategyEngine:
         base_score = min(1.0, base_score + pattern_boost)
 
         # -------------------------------------------------
-        # Consistency Adjustment (micro, bounded)
+        # Consistency Adjustment
         # -------------------------------------------------
 
         scores = [structure_score, liquidity_score, factor_score]
@@ -68,7 +68,7 @@ class StrategyEngine:
 
         consistency = max(0.0, min(1.0, 1 - std))
 
-        adjustment = (consistency - 0.5) * 0.1  # bounded ~ ±5%
+        adjustment = (consistency - 0.5) * 0.1
 
         base_score = base_score * (1 + adjustment)
         base_score = max(0.0, min(1.0, base_score))
@@ -94,18 +94,44 @@ class StrategyEngine:
         historical_score = self.historical_engine.evaluate(market_features)
 
         # -------------------------------------------------
+        # 🔥 Signal Activation Layer (CRO)
+        # -------------------------------------------------
+
+        direction = None
+
+        # BUY
+        if base_score >= 0.55 and momentum >= 0.52:
+            direction = "BUY"
+
+        # SELL
+        elif base_score >= 0.55 and momentum <= 0.48:
+            direction = "SELL"
+
+        # ❌ لا يوجد إشارة واضحة
+        if direction is None:
+            return None
+
+        # -------------------------------------------------
         # Build Signal Object
         # -------------------------------------------------
 
         signal = {
             "symbol": symbol,
+            "direction": direction,
+
+            # 🔥 أهم شي
             "base_score": base_score,
+            "strength": base_score,
+
+            # Context
             "structure_score": structure_score,
             "liquidity_score": liquidity_score,
             "session_score": session_score,
             "context_score": context_score,
             "mtf_score": mtf_score,
             "factor_score": factor_score,
+
+            # Engines
             "historical_score": historical_score,
             "volatility_score": volatility_score
         }

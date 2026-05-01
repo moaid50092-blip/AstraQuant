@@ -1,4 +1,4 @@
-class DecisionEngineHybrid:
+class DecisionEngineV3:
 
     def __init__(self):
 

@@ -5,11 +5,14 @@ from context.context_analyzer import ContextAnalyzer
 from context.context_analyzer_v2 import ContextAnalyzerV2
 from context.mtf_analyzer import MTFAnalyzer
 
-# 🔥 NEW DECISION ENGINE
-from decision.decision_engine_v3 import DecisionEngineV3
+# 🔥 HYBRID
+from decision.decision_engine_hybrid import DecisionEngineHybrid
 
-# 🔥 RANGE ENGINE
+# 🔥 RANGE
 from context.range_engine_v2 import RangeEngineV2
+
+# 🔥 EDGE TRACKER
+from analytics.edge_tracker import EdgeTracker
 
 
 class Scanner:
@@ -21,8 +24,6 @@ class Scanner:
 
         self.fast_scanner = FastScanner(candidate_count=candidate_count)
 
-        self.min_probability = 0.52
-
         self.momentum_tracker = MomentumTracker(window_size=4)
 
         self.context_analyzer = ContextAnalyzer()
@@ -30,10 +31,11 @@ class Scanner:
 
         self.mtf_analyzer = MTFAnalyzer()
 
-        # 🔥 UPDATED
-        self.decision_engine = DecisionEngineV3()
-
+        self.decision_engine = DecisionEngineHybrid()
         self.range_engine = RangeEngineV2()
+
+        # 🔥 NEW
+        self.edge_tracker = EdgeTracker()
 
     # -------------------------------------------------
     def run_scan(self, market_data):
@@ -45,9 +47,6 @@ class Scanner:
 
         opportunities = []
         all_signals = []
-
-        strategy_count = 0
-        probability_count = 0
 
         for symbol in candidate_symbols:
 
@@ -62,30 +61,19 @@ class Scanner:
             if df_1m is None:
                 continue
 
-            # -----------------------------------------
             # Strategy
-            # -----------------------------------------
             strategy_signal = self.strategy_engine.detect(symbol, df_1m)
             if strategy_signal is None:
                 continue
 
-            strategy_count += 1
-
-            # -----------------------------------------
             # Probability
-            # -----------------------------------------
-            probability = self.probability_engine.evaluate(strategy_signal)
-            probability_count += 1
+            base_probability = self.probability_engine.evaluate(strategy_signal)
 
-            # -----------------------------------------
             # Momentum
-            # -----------------------------------------
-            self.momentum_tracker.update(symbol, probability)
+            self.momentum_tracker.update(symbol, base_probability)
             momentum_info = self.momentum_tracker.get_momentum_info(symbol)
 
-            # -----------------------------------------
             # Context
-            # -----------------------------------------
             context = self.context_analyzer.analyze(
                 df_1m,
                 momentum_info["direction"],
@@ -99,34 +87,38 @@ class Scanner:
                 context
             )
 
-            # -----------------------------------------
-            # RANGE (SAFE)
-            # -----------------------------------------
+            # Range
             range_info = self.range_engine.analyze(
                 df_1m,
                 momentum_info["direction"]
-            )
+            ) or {
+                "range_active": False,
+                "signal": None,
+                "confidence": 0,
+                "location": None
+            }
 
-            if range_info is None:
-                range_info = {
-                    "range_active": False,
-                    "signal": None,
-                    "confidence": 0,
-                    "location": None
-                }
-
-            # -----------------------------------------
             # MTF
-            # -----------------------------------------
-            mtf = self.mtf_analyzer.analyze(
-                df_1m,
-                df_5m,
-                df_15m
-            )
+            mtf = self.mtf_analyzer.analyze(df_1m, df_5m, df_15m)
 
-            # -----------------------------------------
-            # 🔥 Decision (V3)
-            # -----------------------------------------
+            # 🔥 Dynamic Probability
+            probability = base_probability
+
+            if mtf["alignment"] == "strong":
+                probability += 0.02
+
+            if context["breakout"]:
+                probability += 0.02
+
+            if range_info["signal"]:
+                probability += 0.015
+
+            if context_v2["confidence_label"] == "HIGH":
+                probability += 0.025
+
+            probability = min(probability, 0.99)
+
+            # Decision
             decision = self.decision_engine.evaluate({
                 "probability": probability,
                 "momentum": momentum_info["direction"],
@@ -140,88 +132,47 @@ class Scanner:
                     "5m": mtf["trend_5m"],
                     "15m": mtf["trend_15m"]
                 },
-
-                # 🔥 RANGE DATA
                 "range_active": range_info["range_active"],
                 "range_signal": range_info["signal"],
                 "range_confidence": range_info["confidence"],
-                "range_location": range_info["location"]
+                "range_location": range_info["location"],
+                "confidence": context_v2["confidence_label"]
             })
 
-            # -----------------------------------------
-            # Store ALL signals
-            # -----------------------------------------
-            all_signals.append({
+            # Store signal
+            signal_data = {
                 "symbol": symbol,
-                "probability": float(probability),
-
-                "momentum": momentum_info["direction"],
-                "strength": momentum_info["strength"],
-                "history": momentum_info["history"],
-
-                "trend": context["trend"],
-                "zone": context["zone"],
-                "breakout": context["breakout"],
-                "setup": context["setup"],
-
-                "mtf_alignment": mtf["alignment"],
-                "mtf_trend_1m": mtf["trend_1m"],
-                "mtf_trend_5m": mtf["trend_5m"],
-                "mtf_trend_15m": mtf["trend_15m"],
-
-                # 🔥 Decision
-                "decision": decision["decision"],
-                "direction": decision["direction"],
                 "score": decision["score"],
-                "reasons": [],  # 🔥 avoid crash
-
-                # 🔥 Confidence
-                "confidence_score": context_v2["confidence_score"],
+                "probability": probability,
                 "confidence_label": context_v2["confidence_label"],
+                "mode": decision["mode"],
+                "direction": decision["direction"]
+            }
 
-                # 🔥 RANGE
-                "range_active": range_info["range_active"],
-                "range_signal": range_info["signal"],
-                "range_confidence": range_info["confidence"]
+            # 🔥 تسجيل الصفقة
+            trade_id = None
+            if decision["decision"] == "ENTER":
+                trade_id = self.edge_tracker.log_trade(signal_data)
+
+            all_signals.append({
+                **signal_data,
+                "decision": decision["decision"],
+                "trade_id": trade_id
             })
 
-            # -----------------------------------------
             # Filter
-            # -----------------------------------------
             if decision["decision"] != "ENTER":
                 continue
 
-            opportunity = {
+            opportunities.append({
                 "symbol": symbol,
-                "signal": strategy_signal,
-                "probability_score": probability,
-
-                "momentum": momentum_info["direction"],
-                "strength": momentum_info["strength"],
-
-                "trend": context["trend"],
-                "zone": context["zone"],
-                "breakout": context["breakout"],
-                "setup": context["setup"],
-
-                "mtf_alignment": mtf["alignment"],
-
                 "direction": decision["direction"],
                 "score": decision["score"],
-
-                "confidence": context_v2["confidence_label"],
-
-                # 🔥 RANGE
-                "range_signal": range_info["signal"]
-            }
-
-            opportunities.append(opportunity)
+                "probability": probability,
+                "trade_id": trade_id
+            })
 
         return {
             "opportunities": opportunities,
-            "all_signals": all_signals,
-            "metrics": {
-                "strategy_count": strategy_count,
-                "probability_count": probability_count
-            }
+            "all_signals": all_signals
         }

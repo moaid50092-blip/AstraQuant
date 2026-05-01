@@ -1,4 +1,4 @@
-# strategy/strategy_engine.py
+strategy/strategy_engine.py
 
 """
 Strategy Engine
@@ -16,213 +16,186 @@ Integrated context engines:
 from intelligence.historical_context_engine import HistoricalContextEngine
 from intelligence.volatility_context_engine import VolatilityContextEngine
 
-
 class StrategyEngine:
 
-    def __init__(self):
+def __init__(self):  
 
-        # Context engines
-        self.historical_engine = HistoricalContextEngine()
-        self.volatility_engine = VolatilityContextEngine()
+    # Context engines  
+    self.historical_engine = HistoricalContextEngine()  
+    self.volatility_engine = VolatilityContextEngine()  
 
-    # -------------------------------------------------
-    # Main Signal Detection
-    # -------------------------------------------------
+# -------------------------------------------------  
+# Main Signal Detection  
+# -------------------------------------------------  
 
-    def detect(self, symbol, df):
+def detect(self, symbol, df):  
 
-        if df is None or len(df) < 50:
-            return None
+    if df is None or len(df) < 50:  
+        return None  
 
-        trend_strength = self._compute_trend_strength(df)
-        volatility = self._compute_volatility(df)
-        momentum = self._compute_momentum(df)
+    trend_strength = self._compute_trend_strength(df)  
+    volatility = self._compute_volatility(df)  
+    momentum = self._compute_momentum(df)  
 
-        # baseline contextual scores
-        structure_score = trend_strength
-        liquidity_score = 0.5
-        session_score = 0.5
-        context_score = 0.5
-        mtf_score = 0.5
-        factor_score = 0.5
+    # baseline contextual scores  
+    structure_score = trend_strength  
+    liquidity_score = 0.5  
+    session_score = 0.5  
+    context_score = 0.5  
+    mtf_score = 0.5  
+    factor_score = 0.5  
 
-        base_score = momentum
+    base_score = momentum  
 
-        # -------------------------------------------------
-        # Liquidity Compression Breakout Detection
-        # -------------------------------------------------
+    # -------------------------------------------------  
+    # Liquidity Compression Breakout Detection  
+    # -------------------------------------------------  
 
-        pattern_boost = self._detect_liquidity_compression_breakout(df)
+    pattern_boost = self._detect_liquidity_compression_breakout(df)  
 
-        base_score = min(1.0, base_score + pattern_boost)
+    base_score = min(1.0, base_score + pattern_boost)  
 
-        # -------------------------------------------------
-        # Consistency Adjustment
-        # -------------------------------------------------
+    # -------------------------------------------------  
+    # Consistency Adjustment (micro, bounded)  
+    # -------------------------------------------------  
 
-        scores = [structure_score, liquidity_score, factor_score]
+    scores = [structure_score, liquidity_score, factor_score]  
 
-        mean_score = sum(scores) / len(scores)
-        variance = sum((s - mean_score) ** 2 for s in scores) / len(scores)
-        std = variance ** 0.5
+    mean_score = sum(scores) / len(scores)  
+    variance = sum((s - mean_score) ** 2 for s in scores) / len(scores)  
+    std = variance ** 0.5  
 
-        consistency = max(0.0, min(1.0, 1 - std))
+    consistency = max(0.0, min(1.0, 1 - std))  
 
-        adjustment = (consistency - 0.5) * 0.1
+    adjustment = (consistency - 0.5) * 0.1  # bounded ~ ±5%  
 
-        base_score = base_score * (1 + adjustment)
-        base_score = max(0.0, min(1.0, base_score))
+    base_score = base_score * (1 + adjustment)  
+    base_score = max(0.0, min(1.0, base_score))  
 
-        # -------------------------------------------------
-        # Volatility Context
-        # -------------------------------------------------
+    # -------------------------------------------------  
+    # Volatility Context  
+    # -------------------------------------------------  
 
-        volatility_score = self.volatility_engine.evaluate(df)
+    volatility_score = self.volatility_engine.evaluate(df)  
 
-        # -------------------------------------------------
-        # Historical Context
-        # -------------------------------------------------
+    # -------------------------------------------------  
+    # Historical Context  
+    # -------------------------------------------------  
 
-        market_features = {
-            "trend_strength": trend_strength,
-            "volatility": volatility,
-            "momentum": momentum,
-            "liquidity_state": liquidity_score,
-            "session_context": session_score
-        }
+    market_features = {  
+        "trend_strength": trend_strength,  
+        "volatility": volatility,  
+        "momentum": momentum,  
+        "liquidity_state": liquidity_score,  
+        "session_context": session_score  
+    }  
 
-        historical_score = self.historical_engine.evaluate(market_features)
+    historical_score = self.historical_engine.evaluate(market_features)  
 
-        # -------------------------------------------------
-        # 🔥 Signal Activation Layer (CRO)
-        # -------------------------------------------------
+    # -------------------------------------------------  
+    # Build Signal Object  
+    # -------------------------------------------------  
 
-        direction = None
+    signal = {  
+        "symbol": symbol,  
+        "base_score": base_score,  
+        "structure_score": structure_score,  
+        "liquidity_score": liquidity_score,  
+        "session_score": session_score,  
+        "context_score": context_score,  
+        "mtf_score": mtf_score,  
+        "factor_score": factor_score,  
+        "historical_score": historical_score,  
+        "volatility_score": volatility_score  
+    }  
 
-        # BUY
-        if base_score >= 0.55 and momentum >= 0.52:
-            direction = "BUY"
+    return signal  
 
-        # SELL
-        elif base_score >= 0.55 and momentum <= 0.48:
-            direction = "SELL"
+# -------------------------------------------------  
+# Liquidity Compression Breakout Pattern  
+# -------------------------------------------------  
 
-        # ❌ لا يوجد إشارة واضحة
-        if direction is None:
-            return None
+def _detect_liquidity_compression_breakout(self, df):  
 
-        # -------------------------------------------------
-        # Build Signal Object
-        # -------------------------------------------------
+    highs = df["high"]  
+    lows = df["low"]  
+    closes = df["close"]  
 
-        signal = {
-            "symbol": symbol,
-            "direction": direction,
+    if len(df) < 20:  
+        return 0.0  
 
-            # 🔥 أهم شي
-            "base_score": base_score,
-            "strength": base_score,
+    prev_high = highs.iloc[-10:-5].max()  
+    prev_low = lows.iloc[-10:-5].min()  
 
-            # Context
-            "structure_score": structure_score,
-            "liquidity_score": liquidity_score,
-            "session_score": session_score,
-            "context_score": context_score,
-            "mtf_score": mtf_score,
-            "factor_score": factor_score,
+    last_high = highs.iloc[-6]  
+    last_low = lows.iloc[-6]  
 
-            # Engines
-            "historical_score": historical_score,
-            "volatility_score": volatility_score
-        }
+    sweep_up = last_high > prev_high  
+    sweep_down = last_low < prev_low  
 
-        return signal
+    if not (sweep_up or sweep_down):  
+        return 0.0  
 
-    # -------------------------------------------------
-    # Liquidity Compression Breakout Pattern
-    # -------------------------------------------------
+    compression_range = highs.iloc[-5:].max() - lows.iloc[-5:].min()  
+    prior_range = highs.iloc[-15:-5].max() - lows.iloc[-15:-5].min()  
 
-    def _detect_liquidity_compression_breakout(self, df):
+    if prior_range == 0:  
+        return 0.0  
 
-        highs = df["high"]
-        lows = df["low"]
-        closes = df["close"]
+    compression_ratio = compression_range / prior_range  
 
-        if len(df) < 20:
-            return 0.0
+    if compression_ratio > 0.5:  
+        return 0.0  
 
-        prev_high = highs.iloc[-10:-5].max()
-        prev_low = lows.iloc[-10:-5].min()
+    breakout_up = closes.iloc[-1] > highs.iloc[-5:-1].max()  
+    breakout_down = closes.iloc[-1] < lows.iloc[-5:-1].min()  
 
-        last_high = highs.iloc[-6]
-        last_low = lows.iloc[-6]
+    if breakout_up or breakout_down:  
+        return 0.15  
 
-        sweep_up = last_high > prev_high
-        sweep_down = last_low < prev_low
+    return 0.0  
 
-        if not (sweep_up or sweep_down):
-            return 0.0
+# -------------------------------------------------  
+# Trend Strength  
+# -------------------------------------------------  
 
-        compression_range = highs.iloc[-5:].max() - lows.iloc[-5:].min()
-        prior_range = highs.iloc[-15:-5].max() - lows.iloc[-15:-5].min()
+def _compute_trend_strength(self, df):  
 
-        if prior_range == 0:
-            return 0.0
+    closes = df["close"]  
 
-        compression_ratio = compression_range / prior_range
+    if len(closes) < 20:  
+        return 0.5  
 
-        if compression_ratio > 0.5:
-            return 0.0
+    trend = (closes.iloc[-1] - closes.iloc[-20]) / closes.iloc[-20]  
 
-        breakout_up = closes.iloc[-1] > highs.iloc[-5:-1].max()
-        breakout_down = closes.iloc[-1] < lows.iloc[-5:-1].min()
+    return max(0.0, min(1.0, 0.5 + trend))  
 
-        if breakout_up or breakout_down:
-            return 0.15
+# -------------------------------------------------  
+# Volatility  
+# -------------------------------------------------  
 
-        return 0.0
+def _compute_volatility(self, df):  
 
-    # -------------------------------------------------
-    # Trend Strength
-    # -------------------------------------------------
+    returns = df["close"].pct_change().dropna()  
 
-    def _compute_trend_strength(self, df):
+    if len(returns) < 20:  
+        return 0.5  
 
-        closes = df["close"]
+    vol = returns[-20:].std()  
 
-        if len(closes) < 20:
-            return 0.5
+    return max(0.0, min(1.0, vol * 10))  
 
-        trend = (closes.iloc[-1] - closes.iloc[-20]) / closes.iloc[-20]
+# -------------------------------------------------  
+# Momentum  
+# -------------------------------------------------  
 
-        return max(0.0, min(1.0, 0.5 + trend))
+def _compute_momentum(self, df):  
 
-    # -------------------------------------------------
-    # Volatility
-    # -------------------------------------------------
+    closes = df["close"]  
 
-    def _compute_volatility(self, df):
+    if len(closes) < 10:  
+        return 0.5  
 
-        returns = df["close"].pct_change().dropna()
+    momentum = (closes.iloc[-1] - closes.iloc[-10]) / closes.iloc[-10]  
 
-        if len(returns) < 20:
-            return 0.5
-
-        vol = returns[-20:].std()
-
-        return max(0.0, min(1.0, vol * 10))
-
-    # -------------------------------------------------
-    # Momentum
-    # -------------------------------------------------
-
-    def _compute_momentum(self, df):
-
-        closes = df["close"]
-
-        if len(closes) < 10:
-            return 0.5
-
-        momentum = (closes.iloc[-1] - closes.iloc[-10]) / closes.iloc[-10]
-
-        return max(0.0, min(1.0, 0.5 + momentum))
+    return max(0.0, min(1.0, 0.5 + momentum))

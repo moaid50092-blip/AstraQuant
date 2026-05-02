@@ -2,7 +2,6 @@ class DecisionEngineV3:
 
     def __init__(self):
 
-        # 🔥 Weights (متوازنة)
         self.weights = {
             "trend": 2.5,
             "mtf": 2.0,
@@ -13,13 +12,10 @@ class DecisionEngineV3:
             "setup": 2.0
         }
 
-        # 🔥 Thresholds
         self.trend_threshold = 6
         self.range_threshold = 4.8
         self.transition_threshold = 7
 
-    # -------------------------------------------------
-    # 🧠 Smart Gate (من V2 لكن مطور)
     # -------------------------------------------------
     def gate(self, data):
 
@@ -29,14 +25,11 @@ class DecisionEngineV3:
         if data.get("strength", 0) < 0.45:
             return "WEAK MOMENTUM"
 
-        # 🔥 لا نقتل الرينج إلا إذا فاضي
         if data.get("trend") == "range" and not data.get("range_signal"):
             return "EMPTY RANGE"
 
         return None
 
-    # -------------------------------------------------
-    # 🧠 Detect Market Mode
     # -------------------------------------------------
     def detect_mode(self, data):
 
@@ -48,8 +41,6 @@ class DecisionEngineV3:
 
         return "TRANSITION"
 
-    # -------------------------------------------------
-    # 📊 Trend Score
     # -------------------------------------------------
     def calculate_trend_score(self, data):
 
@@ -79,8 +70,6 @@ class DecisionEngineV3:
         return score
 
     # -------------------------------------------------
-    # 📦 Range Score (محسنة)
-    # -------------------------------------------------
     def calculate_range_score(self, data):
 
         signal = data.get("range_signal")
@@ -92,7 +81,6 @@ class DecisionEngineV3:
         score = conf * 1.5
         score += self.weights["range"]
 
-        # confluence
         if (signal == "BUY" and data["momentum"] == "up") or \
            (signal == "SELL" and data["momentum"] == "down"):
             score += 0.3
@@ -100,20 +88,43 @@ class DecisionEngineV3:
         return score, signal
 
     # -------------------------------------------------
-    # 🧠 Intelligence Layer (الأهم)
+    # 🔥 NEW: Transition Score
+    # -------------------------------------------------
+    def calculate_transition_score(self, data):
+
+        score = 0
+
+        # Breakout (أساسي)
+        if data.get("breakout"):
+            score += 3
+
+        # MTF alignment (اتجاه عام)
+        mtf = data["mtf"]
+        aligned = sum(1 for x in mtf.values() if x in ["up", "down"])
+        if aligned >= 2:
+            score += 2
+
+        # Strength
+        if data.get("strength", 0) >= 0.6:
+            score += 2
+
+        # Confidence
+        if data.get("confidence") == "HIGH":
+            score += 1
+
+        return score
+
     # -------------------------------------------------
     def intelligence_adjustment(self, score, threshold, data):
 
         prob = data.get("probability", 0)
         confidence = data.get("confidence", "MEDIUM")
 
-        # 🔥 Probability Logic
         if prob > 0.6:
             score += 0.5
         elif prob < 0.5:
             threshold += 0.5
 
-        # 🔥 Confidence Logic
         if confidence == "HIGH":
             score += 0.5
         elif confidence == "LOW":
@@ -122,9 +133,15 @@ class DecisionEngineV3:
         return score, threshold
 
     # -------------------------------------------------
-    # 🎯 Position Size
-    # -------------------------------------------------
-    def position_size(self, score):
+    def position_size(self, score, mode):
+
+        if mode == "TRANSITION":
+            if score >= 8:
+                return 0.6
+            elif score >= 7:
+                return 0.4
+            else:
+                return 0.0
 
         if score >= 8:
             return 1.0
@@ -136,11 +153,8 @@ class DecisionEngineV3:
             return 0.0
 
     # -------------------------------------------------
-    # 🚀 MAIN EVALUATION
-    # -------------------------------------------------
     def evaluate(self, data):
 
-        # 🔥 Gate
         gate_reason = self.gate(data)
         if gate_reason:
             return {
@@ -149,7 +163,9 @@ class DecisionEngineV3:
                 "score": 0,
                 "mode": "BLOCKED",
                 "size": 0,
-                "reasons": [gate_reason]
+                "reasons": [gate_reason],
+                "threshold": None,
+                "raw_score": 0
             }
 
         mode = self.detect_mode(data)
@@ -175,24 +191,48 @@ class DecisionEngineV3:
                     "score": round(score, 2),
                     "mode": mode,
                     "size": 0,
-                    "reasons": ["weak range"]
+                    "reasons": ["weak range"],
+                    "threshold": self.range_threshold,
+                    "raw_score": round(score, 2)
                 }
 
             threshold = self.range_threshold
 
         # =============================
-        # TRANSITION
+        # 🔥 TRANSITION (احترافي)
         # =============================
         else:
-            score = self.calculate_trend_score(data)
-            threshold = self.transition_threshold
-            direction = data["momentum"]
 
-        # 🔥 Intelligence Layer
+            # ❌ بدون breakout = تجاهل
+            if not data.get("breakout"):
+                return {
+                    "decision": "IGNORE",
+                    "direction": None,
+                    "score": 0,
+                    "mode": "TRANSITION",
+                    "size": 0,
+                    "reasons": ["no breakout"],
+                    "threshold": self.transition_threshold,
+                    "raw_score": 0
+                }
+
+            score = self.calculate_transition_score(data)
+            threshold = self.transition_threshold
+
+            # 🔥 اتجاه من MTF بدل momentum
+            mtf = data["mtf"]
+            majority = max(set(mtf.values()), key=list(mtf.values()).count)
+
+            if majority in ["up", "down"]:
+                direction = majority
+            else:
+                direction = None
+
+        # -----------------------------
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
-        # -------------------------------------------------
-        # 🎯 Decision
+        raw_score = score
+
         if score >= threshold:
             decision = "ENTER"
         elif score >= threshold - 2:
@@ -205,6 +245,8 @@ class DecisionEngineV3:
             "direction": direction,
             "score": round(score, 2),
             "mode": mode,
-            "size": self.position_size(score),
-            "reasons": [mode.lower()]
+            "size": self.position_size(score, mode),
+            "reasons": [mode.lower()],
+            "threshold": round(threshold, 2),
+            "raw_score": round(raw_score, 2)
         }

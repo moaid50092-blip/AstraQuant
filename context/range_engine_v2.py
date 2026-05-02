@@ -9,6 +9,8 @@ class RangeEngineV2:
         self.min_range_ratio = min_range_ratio
 
     # -----------------------------------------
+    # 1️⃣ Detect Range
+    # -----------------------------------------
     def detect_range(self, df):
 
         if len(df) < self.window:
@@ -27,16 +29,18 @@ class RangeEngineV2:
 
         range_ratio = range_size / avg_price
 
+        # 🔥 فلترة الرينج الضعيف
         if range_ratio < self.min_range_ratio:
             return None
 
         return {
             "high": high,
             "low": low,
-            "size": range_size,
-            "ratio": range_ratio  # 🔥 NEW
+            "size": range_size
         }
 
+    # -----------------------------------------
+    # 2️⃣ Location
     # -----------------------------------------
     def detect_location(self, price, range_data):
 
@@ -52,6 +56,8 @@ class RangeEngineV2:
 
         return "middle"
 
+    # -----------------------------------------
+    # 3️⃣ Rejection (Wick Logic)
     # -----------------------------------------
     def detect_rejection(self, df):
 
@@ -79,6 +85,8 @@ class RangeEngineV2:
         return None
 
     # -----------------------------------------
+    # 4️⃣ Fake Breakout
+    # -----------------------------------------
     def detect_fake_breakout(self, df, range_data):
 
         if len(df) < 2:
@@ -95,8 +103,13 @@ class RangeEngineV2:
         return None
 
     # -----------------------------------------
+    # 5️⃣ Main Analyze (نسخة احترافية)
+    # -----------------------------------------
     def analyze(self, df, momentum_dir=None):
 
+        # -----------------------------------------
+        # Default Output (مهم جدًا)
+        # -----------------------------------------
         result = {
             "range_active": False,
             "signal": None,
@@ -105,15 +118,12 @@ class RangeEngineV2:
             "rejection": None,
             "fake_breakout": None,
             "range_high": None,
-            "range_low": None,
-
-            # 🔥 NEW
-            "range_strength": 0,
-            "range_score": 0,
-            "range_bias": "neutral",
-            "tradable": False
+            "range_low": None
         }
 
+        # -----------------------------------------
+        # Detect Range
+        # -----------------------------------------
         range_data = self.detect_range(df)
 
         if range_data is None:
@@ -123,6 +133,9 @@ class RangeEngineV2:
 
         price = df["close"].iloc[-1]
 
+        # -----------------------------------------
+        # Context
+        # -----------------------------------------
         location = self.detect_location(price, range_data)
         rejection = self.detect_rejection(df)
         fake_break = self.detect_fake_breakout(df, range_data)
@@ -137,19 +150,21 @@ class RangeEngineV2:
         confidence = 0
 
         # -----------------------------------------
-        # Entry Logic
+        # 🎯 Entry Logic
         # -----------------------------------------
 
+        # BUY
         if location == "bottom" and (rejection == "bullish" or fake_break == "fake_down"):
             signal = "BUY"
             confidence += 1
 
+        # SELL
         elif location == "top" and (rejection == "bearish" or fake_break == "fake_up"):
             signal = "SELL"
             confidence += 1
 
         # -----------------------------------------
-        # Momentum Confluence
+        # 🔥 Momentum Confluence
         # -----------------------------------------
         if momentum_dir:
             if (signal == "BUY" and momentum_dir == "up") or \
@@ -157,39 +172,9 @@ class RangeEngineV2:
                 confidence += 0.5
 
         # -----------------------------------------
-        # 🔥 Range Strength
-        # -----------------------------------------
-        strength = min(range_data["ratio"] * 100, 1.0)
-
-        # -----------------------------------------
-        # 🔥 Range Score
-        # -----------------------------------------
-        range_score = confidence * 0.7 + strength * 0.3
-
-        # -----------------------------------------
-        # 🔥 Bias
-        # -----------------------------------------
-        if signal == "BUY":
-            bias = "up"
-        elif signal == "SELL":
-            bias = "down"
-        else:
-            bias = "neutral"
-
-        # -----------------------------------------
-        # 🔥 Tradability
-        # -----------------------------------------
-        tradable = True if range_score >= 0.8 else False
-
-        # -----------------------------------------
         # Save
         # -----------------------------------------
         result["signal"] = signal
         result["confidence"] = round(confidence, 2)
-
-        result["range_strength"] = round(strength, 2)
-        result["range_score"] = round(range_score, 2)
-        result["range_bias"] = bias
-        result["tradable"] = tradable
 
         return result

@@ -2,7 +2,6 @@ class DecisionEngineV3:
 
     def __init__(self):
 
-        # 🔥 Weights (نفسها)
         self.weights = {
             "trend": 2.5,
             "mtf": 2.0,
@@ -13,13 +12,10 @@ class DecisionEngineV3:
             "setup": 2.0
         }
 
-        # 🔥 Thresholds (CRO BALANCED)
         self.trend_threshold = 6
         self.range_threshold = 4.8
-        self.transition_threshold = 6.3   # 🔥 كان 7 → صار أخف شوي
+        self.transition_threshold = 6.3
 
-    # -------------------------------------------------
-    # 🧠 Smart Gate
     # -------------------------------------------------
     def gate(self, data):
 
@@ -35,8 +31,6 @@ class DecisionEngineV3:
         return None
 
     # -------------------------------------------------
-    # 🧠 Detect Mode
-    # -------------------------------------------------
     def detect_mode(self, data):
 
         if data.get("range_active") and not data.get("breakout"):
@@ -48,8 +42,6 @@ class DecisionEngineV3:
         return "TRANSITION"
 
     # -------------------------------------------------
-    # 📊 Trend Score (🔥 فيه التعديل)
-    # -------------------------------------------------
     def calculate_trend_score(self, data):
 
         score = 0
@@ -60,11 +52,10 @@ class DecisionEngineV3:
         mtf = data["mtf"]
         aligned = sum(1 for x in mtf.values() if x == data["momentum"])
 
-        # 🔥 CRO FIX (أهم تعديل)
         if aligned == 3:
             score += self.weights["mtf"]
         elif aligned == 2:
-            score += self.weights["mtf"] * 0.6   # 👈 دعم MEDIUM بدل صفر
+            score += self.weights["mtf"] * 0.6   # MEDIUM support
 
         if data["breakout"]:
             score += self.weights["breakout"]
@@ -80,8 +71,6 @@ class DecisionEngineV3:
 
         return score
 
-    # -------------------------------------------------
-    # 📦 Range Score
     # -------------------------------------------------
     def calculate_range_score(self, data):
 
@@ -101,7 +90,31 @@ class DecisionEngineV3:
         return score, signal
 
     # -------------------------------------------------
-    # 🧠 Intelligence Layer
+    # 🔥 CRO INTELLIGENCE (أهم جزء)
+    # -------------------------------------------------
+    def adaptive_threshold(self, score, threshold, data):
+
+        prob = data.get("probability", 0)
+        mtf = data["mtf"]
+        breakout = data.get("breakout", False)
+
+        aligned = sum(1 for x in mtf.values() if x == data["momentum"])
+
+        # 🔥 المنطقة الرمادية (الذكاء الحقيقي)
+        if 0.47 <= prob <= 0.53:
+
+            # فقط إذا في confluence حقيقي
+            if breakout:
+                threshold -= 0.5
+
+            elif aligned >= 2:
+                threshold -= 0.4
+
+            elif data.get("zone") in ["low", "high"]:
+                threshold -= 0.2
+
+        return score, threshold
+
     # -------------------------------------------------
     def intelligence_adjustment(self, score, threshold, data):
 
@@ -121,8 +134,6 @@ class DecisionEngineV3:
         return score, threshold
 
     # -------------------------------------------------
-    # 🎯 Position Size
-    # -------------------------------------------------
     def position_size(self, score):
 
         if score >= 8:
@@ -134,8 +145,6 @@ class DecisionEngineV3:
         else:
             return 0.0
 
-    # -------------------------------------------------
-    # 🚀 MAIN
     # -------------------------------------------------
     def evaluate(self, data):
 
@@ -181,6 +190,10 @@ class DecisionEngineV3:
             threshold = self.transition_threshold
             direction = data["momentum"]
 
+        # 🔥 CRO LAYER
+        score, threshold = self.adaptive_threshold(score, threshold, data)
+
+        # 🔥 ORIGINAL INTELLIGENCE
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
         raw_score = score

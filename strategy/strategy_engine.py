@@ -8,24 +8,27 @@ class StrategyEngine:
 
     def __init__(self):
 
-        # Context engines
         self.historical_engine = HistoricalContextEngine()
         self.volatility_engine = VolatilityContextEngine()
 
     # -------------------------------------------------
-    # Main Signal Detection
+    # 🧠 Main Signal Detection
     # -------------------------------------------------
     def detect(self, symbol, df):
 
-        # 🔥 FIX: تخفيف الشرط (كان 50)
         if df is None or len(df) < 15:
             return None
 
+        # -----------------------------------------
+        # Core Features
+        # -----------------------------------------
         trend_strength = self._compute_trend_strength(df)
         volatility = self._compute_volatility(df)
         momentum = self._compute_momentum(df)
 
-        # baseline contextual scores
+        # -----------------------------------------
+        # Base Layers
+        # -----------------------------------------
         structure_score = trend_strength
         liquidity_score = 0.5
         session_score = 0.5
@@ -33,17 +36,25 @@ class StrategyEngine:
         mtf_score = 0.5
         factor_score = 0.5
 
+        # -----------------------------------------
+        # 🔥 Probability Layer
+        # -----------------------------------------
         base_score = momentum
 
-        # -------------------------------------------------
-        # Liquidity Compression Breakout Detection
-        # -------------------------------------------------
+        # -----------------------------------------
+        # 🔥 Strength Layer (منفصل بالكامل)
+        # -----------------------------------------
+        raw_strength = abs(momentum - 0.5) * 2
+
+        # -----------------------------------------
+        # 🔥 Pattern Boost (Breakout Intelligence)
+        # -----------------------------------------
         pattern_boost = self._detect_liquidity_compression_breakout(df)
         base_score = min(1.0, base_score + pattern_boost)
 
-        # -------------------------------------------------
-        # Consistency Adjustment (micro, bounded)
-        # -------------------------------------------------
+        # -----------------------------------------
+        # 🔥 Consistency Adjustment
+        # -----------------------------------------
         scores = [structure_score, liquidity_score, factor_score]
 
         mean_score = sum(scores) / len(scores)
@@ -51,20 +62,16 @@ class StrategyEngine:
         std = variance ** 0.5
 
         consistency = max(0.0, min(1.0, 1 - std))
-
         adjustment = (consistency - 0.5) * 0.1
 
         base_score = base_score * (1 + adjustment)
         base_score = max(0.0, min(1.0, base_score))
 
-        # -------------------------------------------------
-        # Volatility Context
-        # -------------------------------------------------
+        # -----------------------------------------
+        # 🔥 Context Engines
+        # -----------------------------------------
         volatility_score = self.volatility_engine.evaluate(df)
 
-        # -------------------------------------------------
-        # Historical Context
-        # -------------------------------------------------
         market_features = {
             "trend_strength": trend_strength,
             "volatility": volatility,
@@ -75,28 +82,35 @@ class StrategyEngine:
 
         historical_score = self.historical_engine.evaluate(market_features)
 
-        # -------------------------------------------------
-        # 🔥 Direction (مهم جدًا لإصلاح النظام)
-        # -------------------------------------------------
-        if momentum > 0.52:
+        # -----------------------------------------
+        # 🔥 Direction (محسن + Transition-ready)
+        # -----------------------------------------
+        if momentum > 0.53:
             direction = "up"
-        elif momentum < 0.48:
+        elif momentum < 0.47:
             direction = "down"
         else:
-            direction = "neutral"
+            direction = "neutral"  # 🔥 مهم للـ Transition
 
-        # -------------------------------------------------
-        # Build Signal Object
-        # -------------------------------------------------
+        # -----------------------------------------
+        # 🔥 Build Signal
+        # -----------------------------------------
         signal = {
             "symbol": symbol,
+
+            # 🧠 Probability
             "base_score": base_score,
 
-            # 🔥 مهم لباقي النظام
+            # 🎯 Direction
             "momentum": direction,
-            "strength": abs(momentum - 0.5) * 2,  # تحويلها لقوة
 
-            # باقي السكورز
+            # 💪 Strength
+            "strength": raw_strength,
+
+            # 🔍 Raw (للتحليل لاحقًا)
+            "raw_momentum": momentum,
+
+            # 🔧 Scores (مفيدة للتطوير لاحقًا)
             "structure_score": structure_score,
             "liquidity_score": liquidity_score,
             "session_score": session_score,
@@ -110,16 +124,16 @@ class StrategyEngine:
         return signal
 
     # -------------------------------------------------
-    # Liquidity Compression Breakout Pattern
+    # 🔥 Liquidity Compression Breakout
     # -------------------------------------------------
     def _detect_liquidity_compression_breakout(self, df):
+
+        if len(df) < 20:
+            return 0.0
 
         highs = df["high"]
         lows = df["low"]
         closes = df["close"]
-
-        if len(df) < 20:
-            return 0.0
 
         prev_high = highs.iloc[-10:-5].max()
         prev_low = lows.iloc[-10:-5].min()
@@ -153,7 +167,7 @@ class StrategyEngine:
         return 0.0
 
     # -------------------------------------------------
-    # Trend Strength
+    # 📊 Trend Strength
     # -------------------------------------------------
     def _compute_trend_strength(self, df):
 
@@ -167,7 +181,7 @@ class StrategyEngine:
         return max(0.0, min(1.0, 0.5 + trend))
 
     # -------------------------------------------------
-    # Volatility
+    # 📊 Volatility
     # -------------------------------------------------
     def _compute_volatility(self, df):
 
@@ -181,7 +195,7 @@ class StrategyEngine:
         return max(0.0, min(1.0, vol * 10))
 
     # -------------------------------------------------
-    # Momentum
+    # 📊 Momentum
     # -------------------------------------------------
     def _compute_momentum(self, df):
 

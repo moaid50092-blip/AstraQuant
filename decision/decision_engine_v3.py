@@ -2,6 +2,7 @@ class DecisionEngineV3:
 
     def __init__(self):
 
+        # 🔥 Weights (نفسها)
         self.weights = {
             "trend": 2.5,
             "mtf": 2.0,
@@ -12,10 +13,13 @@ class DecisionEngineV3:
             "setup": 2.0
         }
 
+        # 🔥 Thresholds (CRO BALANCED)
         self.trend_threshold = 6
         self.range_threshold = 4.8
-        self.transition_threshold = 7
+        self.transition_threshold = 6.3   # 🔥 كان 7 → صار أخف شوي
 
+    # -------------------------------------------------
+    # 🧠 Smart Gate
     # -------------------------------------------------
     def gate(self, data):
 
@@ -31,6 +35,8 @@ class DecisionEngineV3:
         return None
 
     # -------------------------------------------------
+    # 🧠 Detect Mode
+    # -------------------------------------------------
     def detect_mode(self, data):
 
         if data.get("range_active") and not data.get("breakout"):
@@ -42,6 +48,8 @@ class DecisionEngineV3:
         return "TRANSITION"
 
     # -------------------------------------------------
+    # 📊 Trend Score (🔥 فيه التعديل)
+    # -------------------------------------------------
     def calculate_trend_score(self, data):
 
         score = 0
@@ -52,8 +60,11 @@ class DecisionEngineV3:
         mtf = data["mtf"]
         aligned = sum(1 for x in mtf.values() if x == data["momentum"])
 
-        if aligned >= 2:
+        # 🔥 CRO FIX (أهم تعديل)
+        if aligned == 3:
             score += self.weights["mtf"]
+        elif aligned == 2:
+            score += self.weights["mtf"] * 0.6   # 👈 دعم MEDIUM بدل صفر
 
         if data["breakout"]:
             score += self.weights["breakout"]
@@ -69,6 +80,8 @@ class DecisionEngineV3:
 
         return score
 
+    # -------------------------------------------------
+    # 📦 Range Score
     # -------------------------------------------------
     def calculate_range_score(self, data):
 
@@ -88,32 +101,7 @@ class DecisionEngineV3:
         return score, signal
 
     # -------------------------------------------------
-    # 🔥 NEW: Transition Score
-    # -------------------------------------------------
-    def calculate_transition_score(self, data):
-
-        score = 0
-
-        # Breakout (أساسي)
-        if data.get("breakout"):
-            score += 3
-
-        # MTF alignment (اتجاه عام)
-        mtf = data["mtf"]
-        aligned = sum(1 for x in mtf.values() if x in ["up", "down"])
-        if aligned >= 2:
-            score += 2
-
-        # Strength
-        if data.get("strength", 0) >= 0.6:
-            score += 2
-
-        # Confidence
-        if data.get("confidence") == "HIGH":
-            score += 1
-
-        return score
-
+    # 🧠 Intelligence Layer
     # -------------------------------------------------
     def intelligence_adjustment(self, score, threshold, data):
 
@@ -133,15 +121,9 @@ class DecisionEngineV3:
         return score, threshold
 
     # -------------------------------------------------
-    def position_size(self, score, mode):
-
-        if mode == "TRANSITION":
-            if score >= 8:
-                return 0.6
-            elif score >= 7:
-                return 0.4
-            else:
-                return 0.0
+    # 🎯 Position Size
+    # -------------------------------------------------
+    def position_size(self, score):
 
         if score >= 8:
             return 1.0
@@ -152,6 +134,8 @@ class DecisionEngineV3:
         else:
             return 0.0
 
+    # -------------------------------------------------
+    # 🚀 MAIN
     # -------------------------------------------------
     def evaluate(self, data):
 
@@ -170,17 +154,11 @@ class DecisionEngineV3:
 
         mode = self.detect_mode(data)
 
-        # =============================
-        # TREND
-        # =============================
         if mode == "TREND":
             score = self.calculate_trend_score(data)
             threshold = self.trend_threshold
             direction = data["momentum"]
 
-        # =============================
-        # RANGE
-        # =============================
         elif mode == "RANGE":
             score, direction = self.calculate_range_score(data)
 
@@ -198,37 +176,11 @@ class DecisionEngineV3:
 
             threshold = self.range_threshold
 
-        # =============================
-        # 🔥 TRANSITION (احترافي)
-        # =============================
         else:
-
-            # ❌ بدون breakout = تجاهل
-            if not data.get("breakout"):
-                return {
-                    "decision": "IGNORE",
-                    "direction": None,
-                    "score": 0,
-                    "mode": "TRANSITION",
-                    "size": 0,
-                    "reasons": ["no breakout"],
-                    "threshold": self.transition_threshold,
-                    "raw_score": 0
-                }
-
-            score = self.calculate_transition_score(data)
+            score = self.calculate_trend_score(data)
             threshold = self.transition_threshold
+            direction = data["momentum"]
 
-            # 🔥 اتجاه من MTF بدل momentum
-            mtf = data["mtf"]
-            majority = max(set(mtf.values()), key=list(mtf.values()).count)
-
-            if majority in ["up", "down"]:
-                direction = majority
-            else:
-                direction = None
-
-        # -----------------------------
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
         raw_score = score
@@ -245,7 +197,7 @@ class DecisionEngineV3:
             "direction": direction,
             "score": round(score, 2),
             "mode": mode,
-            "size": self.position_size(score, mode),
+            "size": self.position_size(score),
             "reasons": [mode.lower()],
             "threshold": round(threshold, 2),
             "raw_score": round(raw_score, 2)

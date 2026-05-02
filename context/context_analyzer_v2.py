@@ -4,18 +4,12 @@ import numpy as np
 class ContextAnalyzerV2:
 
     def __init__(self):
-        # Weights
         self.w_short = 0.4
         self.w_mid = 0.35
         self.w_long = 0.25
 
     # -------------------------------------------------
     def _trend_score(self, closes, n):
-        """
-        Returns:
-        trend: up / down / range
-        strength: 0 → 1
-        """
 
         if len(closes) < n:
             return "range", 0.0
@@ -44,9 +38,7 @@ class ContextAnalyzerV2:
 
     # -------------------------------------------------
     def _volatility(self, highs, lows):
-        """
-        Mean range over last 20 candles
-        """
+
         if len(highs) < 20:
             return float(np.mean(highs - lows))
 
@@ -60,36 +52,27 @@ class ContextAnalyzerV2:
         highs = df["high"].values
         lows = df["low"].values
 
-        # -----------------------------
-        # Safety: No momentum
-        # -----------------------------
         if momentum_dir not in ["up", "down"]:
             return {
                 "confidence_score": 0.0,
                 "confidence_label": "LOW",
+                "confidence_numeric": 0.0,
+                "confidence_bias": "neutral",
+                "alignment_score": 0.0,
                 "short_trend": "range",
                 "mid_trend": "range",
                 "long_trend": "range",
                 "reasons": ["NO MOMENTUM"]
             }
 
-        # -----------------------------
-        # Trend Layers
-        # -----------------------------
         short_trend, short_strength = self._trend_score(closes, 6)
         mid_trend, mid_strength = self._trend_score(closes, 20)
         long_trend, long_strength = self._trend_score(closes, 80)
 
-        # -----------------------------
-        # Volatility
-        # -----------------------------
         vol = self._volatility(highs, lows)
         avg_vol = float(np.mean(highs - lows))
 
-        # -----------------------------
-        # Alignment Score
-        # -----------------------------
-        score = 0.0
+        raw_score = 0.0
         reasons = []
 
         def score_layer(trend, strength, weight, name):
@@ -99,64 +82,48 @@ class ContextAnalyzerV2:
                 return -weight * 0.3, f"{name} MISALIGN"
 
         s, r = score_layer(short_trend, short_strength, self.w_short, "SHORT")
-        score += s
+        raw_score += s
         reasons.append(r)
 
         s, r = score_layer(mid_trend, mid_strength, self.w_mid, "MID")
-        score += s
+        raw_score += s
         reasons.append(r)
 
         s, r = score_layer(long_trend, long_strength, self.w_long, "LONG")
-        score += s
+        raw_score += s
         reasons.append(r)
 
-        # -----------------------------
-        # Momentum Boost
-        # -----------------------------
         if momentum_strength >= 0.67:
-            score += 0.15
+            raw_score += 0.15
             reasons.append("STRONG MOMENTUM")
 
-        # -----------------------------
-        # Zone Logic
-        # -----------------------------
         zone = base_context.get("zone")
 
-        if momentum_dir == "up" and zone == "resistance":
-            score -= 0.2
+        if momentum_dir == "up" and zone == "high":
+            raw_score -= 0.2
             reasons.append("AT RESISTANCE")
 
-        if momentum_dir == "down" and zone == "support":
-            score -= 0.2
+        if momentum_dir == "down" and zone == "low":
+            raw_score -= 0.2
             reasons.append("AT SUPPORT")
 
-        # -----------------------------
-        # Breakout Intelligence
-        # -----------------------------
         if base_context.get("breakout"):
             recent_range = float(np.max(highs[-10:]) - np.min(lows[-10:]))
             if recent_range > avg_vol:
-                score += 0.15
+                raw_score += 0.15
                 reasons.append("STRONG BREAKOUT")
             else:
-                score += 0.05
+                raw_score += 0.05
                 reasons.append("WEAK BREAKOUT")
 
-        # -----------------------------
-        # Volatility Filter
-        # -----------------------------
         if vol < avg_vol * 0.7:
-            score -= 0.1
+            raw_score -= 0.1
             reasons.append("LOW VOLATILITY")
 
-        # -----------------------------
-        # Normalize (0 → 1)
-        # -----------------------------
-        score = max(0.0, min(1.0, score))
+        # 🔥 normalization
+        score = max(0.0, min(1.0, raw_score))
 
-        # -----------------------------
-        # Label
-        # -----------------------------
+        # 🔥 label
         if score >= 0.75:
             label = "HIGH"
         elif score >= 0.55:
@@ -164,9 +131,21 @@ class ContextAnalyzerV2:
         else:
             label = "LOW"
 
+        # 🔥 bias
+        if score > 0.65:
+            bias = momentum_dir
+        else:
+            bias = "neutral"
+
         return {
             "confidence_score": float(score),
             "confidence_label": label,
+
+            # 🔥 NEW CRO
+            "confidence_numeric": float(score),
+            "confidence_bias": bias,
+            "alignment_score": float(raw_score),
+
             "short_trend": short_trend,
             "mid_trend": mid_trend,
             "long_trend": long_trend,

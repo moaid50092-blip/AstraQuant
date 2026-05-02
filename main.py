@@ -59,27 +59,33 @@ def run_engine():
                 breakout = s.get("breakout", False)
                 setup = s.get("setup", "unknown")
 
+                # 🔥 MTF
                 mtf_alignment = s.get("mtf_alignment", "unknown")
                 t1 = s.get("mtf_trend_1m", "unknown")
                 t5 = s.get("mtf_trend_5m", "unknown")
                 t15 = s.get("mtf_trend_15m", "unknown")
 
+                # 🔥 Decision
                 decision = s.get("decision", "N/A")
                 direction = s.get("direction", "")
                 score = s.get("score", 0)
                 reasons = s.get("reasons", [])
 
+                # 🔥 Confidence
                 confidence = s.get("confidence_label", "")
                 confidence_score = round(s.get("confidence_score", 0), 2)
 
+                # 🔥 RANGE (NEW)
                 range_active = s.get("range_active", False)
                 range_signal = s.get("range_signal", None)
                 range_conf = round(s.get("range_confidence", 0), 2)
 
+                # تنظيف
                 prob_clean = round(prob, 3)
                 strength_clean = round(strength, 2)
                 history_clean = [round(x, 3) for x in history]
 
+                # Setup Label
                 if setup == "real":
                     setup_label = "🔥 REAL"
                 elif setup == "weak":
@@ -89,6 +95,7 @@ def run_engine():
                 else:
                     setup_label = "⚪ UNKNOWN"
 
+                # MTF Label
                 if mtf_alignment == "strong":
                     mtf_label = "🔥 STRONG"
                 elif mtf_alignment == "medium":
@@ -96,6 +103,7 @@ def run_engine():
                 else:
                     mtf_label = "⚠️ WEAK"
 
+                # Decision Label
                 if decision == "ENTER":
                     decision_label = f"🚀 ENTER {direction}"
                 elif decision == "WATCH":
@@ -103,6 +111,7 @@ def run_engine():
                 else:
                     decision_label = "❌ IGNORE"
 
+                # Confidence Label
                 if confidence == "HIGH":
                     conf_label = f"🧠 HIGH ({confidence_score})"
                 elif confidence == "MEDIUM":
@@ -110,6 +119,7 @@ def run_engine():
                 else:
                     conf_label = f"⚠️ LOW ({confidence_score})"
 
+                # 🔥 Range Label (احترافي)
                 if range_active:
                     if range_signal:
                         range_label = f"📦 RANGE → {range_signal} ({range_conf})"
@@ -129,27 +139,6 @@ def run_engine():
 
                 if reasons:
                     print(f"   ↳ reason: {', '.join(reasons[:3])}")
-
-                # =========================
-                # 🔥 CRO TRADE PLAN (NEW)
-                # =========================
-                if decision == "ENTER":
-
-                    trade_plan = s.get("trade_plan", {})
-                    trade_class = s.get("trade_class", "N/A")
-                    mode = s.get("trade_mode", "N/A")
-
-                    if trade_plan:
-                        print("\n   🧠 CLASS:", trade_class)
-                        print("   📊 MODE:", mode)
-
-                        print("\n   💰 TRADE PLAN")
-                        print(f"   SL: {trade_plan.get('sl')}")
-                        print(f"   TP1: {trade_plan.get('tp1')}")
-                        print(f"   TP2: {trade_plan.get('tp2')}")
-                        print(f"   SIZE: {trade_plan.get('size')}%")
-
-                        print("   ------------------")
 
             print("\n=== Opportunities ===")
 

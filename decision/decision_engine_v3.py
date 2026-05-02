@@ -19,14 +19,22 @@ class DecisionEngineV3:
         self.transition_threshold = 7
 
     # -------------------------------------------------
-    # 🧠 Smart Gate (من V2 لكن مطور)
+    # 🧠 Smart Gate (محسن - يدعم SELL)
     # -------------------------------------------------
     def gate(self, data):
 
         if data.get("setup") == "fake":
             return "FAKE SETUP"
 
-        if data.get("strength", 0) < 0.45:
+        strength = data.get("strength", 0)
+        momentum = data.get("momentum")
+
+        # 🔥 BUY يحتاج قوة أعلى
+        if momentum == "up" and strength < 0.45:
+            return "WEAK MOMENTUM"
+
+        # 🔥 SELL نخفف عليه (بدايات الهبوط ضعيفة طبيعي)
+        if momentum == "down" and strength < 0.38:
             return "WEAK MOMENTUM"
 
         # 🔥 لا نقتل الرينج إلا إذا فاضي
@@ -35,8 +43,6 @@ class DecisionEngineV3:
 
         return None
 
-    # -------------------------------------------------
-    # 🧠 Detect Market Mode
     # -------------------------------------------------
     def detect_mode(self, data):
 
@@ -48,8 +54,6 @@ class DecisionEngineV3:
 
         return "TRANSITION"
 
-    # -------------------------------------------------
-    # 📊 Trend Score
     # -------------------------------------------------
     def calculate_trend_score(self, data):
 
@@ -79,8 +83,6 @@ class DecisionEngineV3:
         return score
 
     # -------------------------------------------------
-    # 📦 Range Score (محسنة)
-    # -------------------------------------------------
     def calculate_range_score(self, data):
 
         signal = data.get("range_signal")
@@ -100,20 +102,16 @@ class DecisionEngineV3:
         return score, signal
 
     # -------------------------------------------------
-    # 🧠 Intelligence Layer (الأهم)
-    # -------------------------------------------------
     def intelligence_adjustment(self, score, threshold, data):
 
         prob = data.get("probability", 0)
         confidence = data.get("confidence", "MEDIUM")
 
-        # 🔥 Probability Logic
         if prob > 0.6:
             score += 0.5
         elif prob < 0.5:
             threshold += 0.5
 
-        # 🔥 Confidence Logic
         if confidence == "HIGH":
             score += 0.5
         elif confidence == "LOW":
@@ -121,8 +119,6 @@ class DecisionEngineV3:
 
         return score, threshold
 
-    # -------------------------------------------------
-    # 🎯 Position Size
     # -------------------------------------------------
     def position_size(self, score):
 
@@ -136,11 +132,25 @@ class DecisionEngineV3:
             return 0.0
 
     # -------------------------------------------------
-    # 🚀 MAIN EVALUATION
+    # 🧠 Directional Overlay (أهم إضافة)
+    # -------------------------------------------------
+    def apply_direction_overlay(self, data, direction):
+
+        trend = data.get("trend")
+        zone = data.get("zone")
+
+        # 🔥 تصحيح ذكي فقط في الحالات الواضحة
+        if trend == "down" and zone == "high":
+            return "down"
+
+        if trend == "up" and zone == "low":
+            return "up"
+
+        return direction
+
     # -------------------------------------------------
     def evaluate(self, data):
 
-        # 🔥 Gate
         gate_reason = self.gate(data)
         if gate_reason:
             return {
@@ -155,16 +165,11 @@ class DecisionEngineV3:
         mode = self.detect_mode(data)
 
         # =============================
-        # TREND
-        # =============================
         if mode == "TREND":
             score = self.calculate_trend_score(data)
             threshold = self.trend_threshold
             direction = data["momentum"]
 
-        # =============================
-        # RANGE
-        # =============================
         elif mode == "RANGE":
             score, direction = self.calculate_range_score(data)
 
@@ -180,19 +185,25 @@ class DecisionEngineV3:
 
             threshold = self.range_threshold
 
-        # =============================
-        # TRANSITION
-        # =============================
         else:
             score = self.calculate_trend_score(data)
             threshold = self.transition_threshold
             direction = data["momentum"]
 
+        # 🔥 Direction Fix (CRO Layer)
+        direction = self.apply_direction_overlay(data, direction)
+
+        # 🔥 Zone Boost (رفع الجودة بدون تقليل صفقات)
+        if data.get("trend") == "up" and data.get("zone") == "low":
+            score += 0.5
+
+        if data.get("trend") == "down" and data.get("zone") == "high":
+            score += 0.5
+
         # 🔥 Intelligence Layer
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
         # -------------------------------------------------
-        # 🎯 Decision
         if score >= threshold:
             decision = "ENTER"
         elif score >= threshold - 2:

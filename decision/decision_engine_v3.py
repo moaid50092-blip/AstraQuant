@@ -2,7 +2,6 @@ class DecisionEngineV3:
 
     def __init__(self):
 
-        # 🔥 Weights (متوازنة)
         self.weights = {
             "trend": 2.5,
             "mtf": 2.0,
@@ -13,13 +12,12 @@ class DecisionEngineV3:
             "setup": 2.0
         }
 
-        # 🔥 Thresholds
         self.trend_threshold = 6
         self.range_threshold = 4.8
         self.transition_threshold = 7
 
     # -------------------------------------------------
-    # 🧠 Smart Gate (محسن - يدعم SELL + EARLY)
+    # 🧠 Smart Gate (SELL + EARLY Aware)
     # -------------------------------------------------
     def gate(self, data):
 
@@ -30,20 +28,19 @@ class DecisionEngineV3:
         momentum = data.get("momentum")
         early = data.get("early_entry", False)
 
-        # 🔥 BUY يحتاج قوة
+        # BUY
         if momentum == "up" and strength < 0.45:
             return "WEAK MOMENTUM"
 
-        # 🔥 SELL (ذكي + يسمح بالبداية)
+        # SELL (يسمح بالبدايات الذكية)
         if momentum == "down":
             if strength < 0.40:
                 return "WEAK MOMENTUM"
 
-            # 👇 الفرق الحقيقي
             if not data.get("breakout") and not early:
                 return "WEAK MOMENTUM"
 
-        # 🔥 لا نقتل الرينج إلا إذا فاضي
+        # RANGE
         if data.get("trend") == "range" and not data.get("range_signal"):
             return "EMPTY RANGE"
 
@@ -167,7 +164,7 @@ class DecisionEngineV3:
 
         mode = self.detect_mode(data)
 
-        # =============================
+        # -------------------------
         if mode == "TREND":
             score = self.calculate_trend_score(data)
             threshold = self.trend_threshold
@@ -194,31 +191,49 @@ class DecisionEngineV3:
             threshold = self.transition_threshold
             direction = data["momentum"]
 
-        # 🔥 Direction Fix
+        # -------------------------
         direction = self.apply_direction_overlay(data, direction)
 
-        # 🔥 Zone Boost
+        # Zone Boost
         if data.get("trend") == "up" and data.get("zone") == "low":
             score += 0.5
 
         if data.get("trend") == "down" and data.get("zone") == "high":
             score += 0.5
 
-        # 🔥 Intelligence Layer
+        # Intelligence Layer
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
         # =========================================
-        # 🔥 CRO EARLY LOGIC
+        # 🔥 CRO EARLY INTELLIGENCE (Adaptive)
         # =========================================
         early = data.get("early_entry", False)
+        acceleration = data.get("acceleration", False)
+        strength = data.get("strength", 0)
 
-        # حماية من الإشارات الضعيفة
-        if early and data.get("strength", 0) < 0.5:
-            early = False
+        early_score = 0
 
-        # تسريع ذكي
         if early:
-            threshold -= 0.5
+            early_score += 1
+        if acceleration:
+            early_score += 1
+        if strength > 0.6:
+            early_score += 1
+
+        # فلترة weak early
+        if early and strength < 0.4:
+            early = False
+            early_score = 0
+
+        # تأثير تدريجي
+        if early_score >= 2:
+            threshold -= 0.7
+        elif early_score == 1:
+            threshold -= 0.3
+
+        # دعم إضافي إذا setup قوي
+        if early and data.get("setup") == "real":
+            threshold -= 0.2
 
         # =========================================
 

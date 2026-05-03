@@ -33,9 +33,12 @@ class DecisionEngineV3:
         if momentum == "up" and strength < 0.45:
             return "WEAK MOMENTUM"
 
-        # 🔥 SELL نخفف عليه (بدايات الهبوط ضعيفة طبيعي)
-        if momentum == "down" and strength < 0.38:
-            return "WEAK MOMENTUM"
+        # 🔥 SELL (معدل باحتراف)
+        if momentum == "down":
+            if strength < 0.40:
+                return "WEAK MOMENTUM"
+            if not data.get("breakout"):
+                return "WEAK MOMENTUM"
 
         # 🔥 لا نقتل الرينج إلا إذا فاضي
         if data.get("trend") == "range" and not data.get("range_signal"):
@@ -94,7 +97,6 @@ class DecisionEngineV3:
         score = conf * 1.5
         score += self.weights["range"]
 
-        # confluence
         if (signal == "BUY" and data["momentum"] == "up") or \
            (signal == "SELL" and data["momentum"] == "down"):
             score += 0.3
@@ -132,14 +134,11 @@ class DecisionEngineV3:
             return 0.0
 
     # -------------------------------------------------
-    # 🧠 Directional Overlay (أهم إضافة)
-    # -------------------------------------------------
     def apply_direction_overlay(self, data, direction):
 
         trend = data.get("trend")
         zone = data.get("zone")
 
-        # 🔥 تصحيح ذكي فقط في الحالات الواضحة
         if trend == "down" and zone == "high":
             return "down"
 
@@ -159,12 +158,12 @@ class DecisionEngineV3:
                 "score": 0,
                 "mode": "BLOCKED",
                 "size": 0,
-                "reasons": [gate_reason]
+                "reasons": [gate_reason],
+                "entry_type": "STANDARD"  # 🔥 ثابت
             }
 
         mode = self.detect_mode(data)
 
-        # =============================
         if mode == "TREND":
             score = self.calculate_trend_score(data)
             threshold = self.trend_threshold
@@ -180,7 +179,8 @@ class DecisionEngineV3:
                     "score": round(score, 2),
                     "mode": mode,
                     "size": 0,
-                    "reasons": ["weak range"]
+                    "reasons": ["weak range"],
+                    "entry_type": "STANDARD"
                 }
 
             threshold = self.range_threshold
@@ -190,10 +190,10 @@ class DecisionEngineV3:
             threshold = self.transition_threshold
             direction = data["momentum"]
 
-        # 🔥 Direction Fix (CRO Layer)
+        # 🔥 Direction Fix
         direction = self.apply_direction_overlay(data, direction)
 
-        # 🔥 Zone Boost (رفع الجودة بدون تقليل صفقات)
+        # 🔥 Zone Boost
         if data.get("trend") == "up" and data.get("zone") == "low":
             score += 0.5
 
@@ -203,7 +203,6 @@ class DecisionEngineV3:
         # 🔥 Intelligence Layer
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
-        # -------------------------------------------------
         if score >= threshold:
             decision = "ENTER"
         elif score >= threshold - 2:
@@ -211,11 +210,16 @@ class DecisionEngineV3:
         else:
             decision = "IGNORE"
 
+        # 🔥 NEW: EARLY DISPLAY ONLY
+        early = data.get("early_entry", False)
+        entry_type = "EARLY" if early else "STANDARD"
+
         return {
             "decision": decision,
             "direction": direction,
             "score": round(score, 2),
             "mode": mode,
             "size": self.position_size(score),
-            "reasons": [mode.lower()]
+            "reasons": [mode.lower()],
+            "entry_type": entry_type
         }

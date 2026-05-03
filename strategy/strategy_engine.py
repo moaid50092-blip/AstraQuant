@@ -25,7 +25,7 @@ class StrategyEngine:
         momentum = self._compute_momentum(df)
 
         # -------------------------------------------------
-        # 🔥 NEW: Early Expansion Detection
+        # 🔥 Early Expansion Detection (محسن)
         # -------------------------------------------------
         early, compression, acceleration = self._detect_early_expansion(df, momentum)
 
@@ -46,7 +46,7 @@ class StrategyEngine:
         base_score = min(1.0, base_score + pattern_boost)
 
         # -------------------------------------------------
-        # Consistency Adjustment
+        # Consistency Adjustment (محافظ)
         # -------------------------------------------------
         scores = [structure_score, liquidity_score, factor_score]
 
@@ -79,7 +79,7 @@ class StrategyEngine:
         historical_score = self.historical_engine.evaluate(market_features)
 
         # -------------------------------------------------
-        # Direction
+        # Direction (ثابت)
         # -------------------------------------------------
         if momentum > 0.52:
             direction = "up"
@@ -98,12 +98,12 @@ class StrategyEngine:
             "momentum": direction,
             "strength": abs(momentum - 0.5) * 2,
 
-            # 🔥 NEW LAYER (CRO)
+            # 🔥 CRO Layer (بدون تأثير على القرار)
             "early_entry": early,
             "compression": compression,
             "acceleration": acceleration,
 
-            # باقي السكورز
+            # scores
             "structure_score": structure_score,
             "liquidity_score": liquidity_score,
             "session_score": session_score,
@@ -117,7 +117,7 @@ class StrategyEngine:
         return signal
 
     # -------------------------------------------------
-    # 🔥 NEW: Early Expansion Logic
+    # 🔥 Early Expansion Logic (محسن بدقة)
     # -------------------------------------------------
     def _detect_early_expansion(self, df, momentum):
 
@@ -152,7 +152,17 @@ class StrategyEngine:
 
         acceleration = momentum > prev_momentum
 
-        early = compression and breakout and acceleration
+        # -------------------------
+        # 🔥 تحسين CRO (فلترة الذكاء)
+        # -------------------------
+        momentum_strength = abs(momentum - 0.5)
+
+        early = (
+            compression
+            and breakout
+            and acceleration
+            and momentum_strength > 0.08
+        )
 
         return early, compression, acceleration
 

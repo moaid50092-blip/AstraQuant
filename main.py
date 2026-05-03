@@ -36,11 +36,27 @@ def run_engine():
             all_signals = scan_result.get("all_signals", [])
             metrics = scan_result.get("metrics", {})
 
+            # 🔥 NEW: Market State
+            market_state = scan_result.get("market_state", "UNKNOWN")
+            market_reason = scan_result.get("market_reason", "")
+
             print("\n==============================")
             print(f"🕒 Cycle @ {time.strftime('%H:%M:%S')}")
             print("==============================")
 
-            print(f"Total Opportunities: {len(opportunities)}")
+            # 🔥 Market State Display (CRO)
+            if market_state == "DEAD":
+                icon = "❌"
+            elif market_state == "RANGE":
+                icon = "📦"
+            elif market_state == "TREND":
+                icon = "🚀"
+            else:
+                icon = "❓"
+
+            print(f"\n🌍 MARKET STATE: {market_state} {icon} ({market_reason})")
+
+            print(f"\nTotal Opportunities: {len(opportunities)}")
             print(f"Strategy Signals: {metrics.get('strategy_count', 0)}")
             print(f"Probability Signals: {metrics.get('probability_count', 0)}")
 
@@ -99,7 +115,7 @@ def run_engine():
                 else:
                     arrow = "→"
 
-                # 🔥 Decision Label (CRO LEVEL)
+                # 🔥 Decision Label
                 if decision == "ENTER":
                     if is_early:
                         decision_label = f"⚡ EARLY ENTER {direction}"
@@ -140,7 +156,7 @@ def run_engine():
                 print(f"   ↳ MTF: 1m={t1} | 5m={t5} | 15m={t15}")
                 print(f"   ↳ setup: {setup} | alignment: {mtf_alignment}")
 
-                # 🔥 EARLY DETAILS (مهم جدًا)
+                # 🔥 EARLY DETAILS
                 if is_early:
                     compression = s.get("compression", False)
                     acceleration = s.get("acceleration", False)

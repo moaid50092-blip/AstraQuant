@@ -8,6 +8,29 @@ from strategy.strategy_engine import StrategyEngine
 from probability.probability_engine import ProbabilityEngine
 
 
+# 🔥 MARKET STATE ENGINE (عرض فقط)
+def detect_market_state(all_signals):
+
+    trends = [s.get("trend") for s in all_signals]
+    breakouts = [s.get("breakout") for s in all_signals]
+
+    up = trends.count("up")
+    down = trends.count("down")
+    range_count = trends.count("range")
+
+    breakout_count = sum(1 for b in breakouts if b)
+
+    total = len(all_signals) if all_signals else 1
+
+    if breakout_count >= total * 0.5 and (up > down):
+        return "TREND 🚀 (aligned trend + breakout activity)"
+
+    if range_count >= total * 0.6:
+        return "RANGE 📦 (sideways structure)"
+
+    return "MIXED ❓ (unclear structure)"
+
+
 def run_engine():
 
     market_universe = MarketUniverse()
@@ -36,33 +59,23 @@ def run_engine():
             all_signals = scan_result.get("all_signals", [])
             metrics = scan_result.get("metrics", {})
 
-            # 🔥 NEW: Market State
-            market_state = scan_result.get("market_state", "UNKNOWN")
-            market_reason = scan_result.get("market_reason", "")
+            # 🔥 MARKET STATE
+            market_state = detect_market_state(all_signals)
 
             print("\n==============================")
             print(f"🕒 Cycle @ {time.strftime('%H:%M:%S')}")
             print("==============================")
 
-            # 🔥 Market State Display (CRO)
-            if market_state == "DEAD":
-                icon = "❌"
-            elif market_state == "RANGE":
-                icon = "📦"
-            elif market_state == "TREND":
-                icon = "🚀"
-            else:
-                icon = "❓"
+            print(f"🌍 MARKET STATE: {market_state}")
 
-            print(f"\n🌍 MARKET STATE: {market_state} {icon} ({market_reason})")
-
-            print(f"\nTotal Opportunities: {len(opportunities)}")
+            print(f"Total Opportunities: {len(opportunities)}")
             print(f"Strategy Signals: {metrics.get('strategy_count', 0)}")
             print(f"Probability Signals: {metrics.get('probability_count', 0)}")
 
             print("\n=== Market View ===")
 
             for s in all_signals:
+
                 symbol = s.get("symbol", "N/A")
                 prob = float(s.get("probability", 0))
 
@@ -91,11 +104,12 @@ def run_engine():
                 range_signal = s.get("range_signal", None)
                 range_conf = round(s.get("range_confidence", 0), 2)
 
-                # 🔥 EARLY
                 entry_type = s.get("entry_type", "STANDARD")
                 is_early = entry_type == "EARLY"
 
-                # تنظيف
+                compression = s.get("compression", False)
+                acceleration = s.get("acceleration", False)
+
                 prob_clean = round(prob, 3)
                 history_clean = [round(x, 3) for x in history]
 
@@ -121,11 +135,13 @@ def run_engine():
                         decision_label = f"⚡ EARLY ENTER {direction}"
                     else:
                         decision_label = f"🚀 ENTER {direction}"
+
                 elif decision == "WATCH":
                     if is_early:
                         decision_label = "⚡ WATCH (early forming)"
                     else:
                         decision_label = "👀 WATCH"
+
                 else:
                     decision_label = "❌ IGNORE"
 
@@ -158,8 +174,6 @@ def run_engine():
 
                 # 🔥 EARLY DETAILS
                 if is_early:
-                    compression = s.get("compression", False)
-                    acceleration = s.get("acceleration", False)
                     print(f"   ↳ ⚡ early: compression={compression}, acceleration={acceleration}")
 
                 print(f"   ↳ hist: {history_clean}")
@@ -175,7 +189,8 @@ def run_engine():
                     "probability": round(float(op.get("probability_score", 0)), 3),
                     "direction": op.get("direction"),
                     "score": op.get("score"),
-                    "confidence": op.get("confidence")
+                    "confidence": op.get("confidence"),
+                    "entry_type": op.get("entry_type")
                 })
 
             elapsed = time.time() - start_time

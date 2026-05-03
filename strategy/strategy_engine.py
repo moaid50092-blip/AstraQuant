@@ -17,13 +17,17 @@ class StrategyEngine:
     # -------------------------------------------------
     def detect(self, symbol, df):
 
-        # 🔥 FIX: تخفيف الشرط (كان 50)
         if df is None or len(df) < 15:
             return None
 
         trend_strength = self._compute_trend_strength(df)
         volatility = self._compute_volatility(df)
         momentum = self._compute_momentum(df)
+
+        # -------------------------------------------------
+        # 🔥 NEW: Early Expansion Detection
+        # -------------------------------------------------
+        early, compression, acceleration = self._detect_early_expansion(df, momentum)
 
         # baseline contextual scores
         structure_score = trend_strength
@@ -42,7 +46,7 @@ class StrategyEngine:
         base_score = min(1.0, base_score + pattern_boost)
 
         # -------------------------------------------------
-        # Consistency Adjustment (micro, bounded)
+        # Consistency Adjustment
         # -------------------------------------------------
         scores = [structure_score, liquidity_score, factor_score]
 
@@ -51,7 +55,6 @@ class StrategyEngine:
         std = variance ** 0.5
 
         consistency = max(0.0, min(1.0, 1 - std))
-
         adjustment = (consistency - 0.5) * 0.1
 
         base_score = base_score * (1 + adjustment)
@@ -76,7 +79,7 @@ class StrategyEngine:
         historical_score = self.historical_engine.evaluate(market_features)
 
         # -------------------------------------------------
-        # 🔥 Direction (مهم جدًا لإصلاح النظام)
+        # Direction
         # -------------------------------------------------
         if momentum > 0.52:
             direction = "up"
@@ -92,9 +95,13 @@ class StrategyEngine:
             "symbol": symbol,
             "base_score": base_score,
 
-            # 🔥 مهم لباقي النظام
             "momentum": direction,
-            "strength": abs(momentum - 0.5) * 2,  # تحويلها لقوة
+            "strength": abs(momentum - 0.5) * 2,
+
+            # 🔥 NEW LAYER (CRO)
+            "early_entry": early,
+            "compression": compression,
+            "acceleration": acceleration,
 
             # باقي السكورز
             "structure_score": structure_score,
@@ -108,6 +115,46 @@ class StrategyEngine:
         }
 
         return signal
+
+    # -------------------------------------------------
+    # 🔥 NEW: Early Expansion Logic
+    # -------------------------------------------------
+    def _detect_early_expansion(self, df, momentum):
+
+        if len(df) < 20:
+            return False, False, False
+
+        highs = df["high"]
+        lows = df["low"]
+        closes = df["close"]
+
+        # -------------------------
+        # Compression
+        # -------------------------
+        recent_range = highs.iloc[-10:].max() - lows.iloc[-10:].min()
+        prev_range = highs.iloc[-20:-10].max() - lows.iloc[-20:-10].min()
+
+        compression = prev_range > 0 and (recent_range / prev_range) < 0.7
+
+        # -------------------------
+        # Fresh Breakout
+        # -------------------------
+        breakout_up = closes.iloc[-1] > highs.iloc[-5:-1].max()
+        breakout_down = closes.iloc[-1] < lows.iloc[-5:-1].min()
+
+        breakout = breakout_up or breakout_down
+
+        # -------------------------
+        # Acceleration
+        # -------------------------
+        prev_momentum = (closes.iloc[-2] - closes.iloc[-11]) / closes.iloc[-11]
+        prev_momentum = max(0.0, min(1.0, 0.5 + prev_momentum))
+
+        acceleration = momentum > prev_momentum
+
+        early = compression and breakout and acceleration
+
+        return early, compression, acceleration
 
     # -------------------------------------------------
     # Liquidity Compression Breakout Pattern

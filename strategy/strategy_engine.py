@@ -24,7 +24,7 @@ class StrategyEngine:
         # 🔥 EARLY
         early, compression, acceleration = self._detect_early_expansion(df, momentum)
 
-        # 🔥 CONTEXT LAYERS (الحقيقية)
+        # 🔥 CONTEXT LAYERS
         liquidity_score = self._compute_liquidity_score(df)
         session_score = self._compute_session_score()
         mtf_score = self._compute_mtf_score(df)
@@ -32,13 +32,31 @@ class StrategyEngine:
         factor_score = self._compute_factor_score(trend_strength, momentum)
 
         structure_score = trend_strength
-        base_score = momentum
+
+        # =========================================
+        # 🔥 CRO BASE SCORE (FUSION LAYER)
+        # =========================================
+        base_score = (
+            momentum * 0.55 +
+            structure_score * 0.15 +
+            mtf_score * 0.15 +
+            factor_score * 0.15
+        )
+
+        # 🔥 EARLY BOOST
+        if early:
+            base_score += 0.05
+
+        # 🔥 VOLATILITY BOOST
+        if volatility > 0.6:
+            base_score += 0.03
 
         # -------------------------------------------------
         pattern_boost = self._detect_liquidity_compression_breakout(df)
-        base_score = min(1.0, base_score + pattern_boost)
+        base_score += pattern_boost
 
         # -------------------------------------------------
+        # CONSISTENCY
         scores = [structure_score, liquidity_score, factor_score]
         mean_score = sum(scores) / len(scores)
         variance = sum((s - mean_score) ** 2 for s in scores) / len(scores)
@@ -48,6 +66,8 @@ class StrategyEngine:
         adjustment = (consistency - 0.5) * 0.1
 
         base_score = base_score * (1 + adjustment)
+
+        # 🔥 FINAL CLAMP
         base_score = max(0.0, min(1.0, base_score))
 
         # -------------------------------------------------
@@ -79,7 +99,7 @@ class StrategyEngine:
             "momentum": direction,
             "strength": abs(momentum - 0.5) * 2,
 
-            # EARLY
+            # 🔥 EARLY (مهم)
             "early_entry": early,
             "compression": compression,
             "acceleration": acceleration,
@@ -134,10 +154,10 @@ class StrategyEngine:
         hour = datetime.datetime.utcnow().hour
 
         if 7 <= hour <= 16:
-            return 0.65  # London/NY
+            return 0.65
 
         if 0 <= hour <= 6:
-            return 0.45  # Asia
+            return 0.45
 
         return 0.5
 

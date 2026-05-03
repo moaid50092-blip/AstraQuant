@@ -7,7 +7,6 @@ from intelligence.volatility_context_engine import VolatilityContextEngine
 class StrategyEngine:
 
     def __init__(self):
-
         self.historical_engine = HistoricalContextEngine()
         self.volatility_engine = VolatilityContextEngine()
 
@@ -65,7 +64,6 @@ class StrategyEngine:
         historical_score = self.historical_engine.evaluate(market_features)
 
         # -------------------------------------------------
-        # Direction (ثابت - لا نلمسه هون)
         if momentum > 0.52:
             direction = "up"
         elif momentum < 0.48:
@@ -99,7 +97,7 @@ class StrategyEngine:
         return signal
 
     # -------------------------------------------------
-    # 🔥 EARLY ENGINE (نسخة CRO محسنة)
+    # 🔥 EARLY ENGINE
     # -------------------------------------------------
     def _detect_early_expansion(self, df, momentum):
 
@@ -110,39 +108,103 @@ class StrategyEngine:
         lows = df["low"]
         closes = df["close"]
 
-        # -------------------------
-        # Compression (خففنا الشرط)
-        # -------------------------
         recent_range = highs.iloc[-10:].max() - lows.iloc[-10:].min()
         prev_range = highs.iloc[-20:-10].max() - lows.iloc[-20:-10].min()
 
         compression = prev_range > 0 and (recent_range / prev_range) < 0.85
 
-        # -------------------------
-        # Breakout
-        # -------------------------
         breakout_up = closes.iloc[-1] > highs.iloc[-5:-1].max()
         breakout_down = closes.iloc[-1] < lows.iloc[-5:-1].min()
 
         breakout = breakout_up or breakout_down
 
-        # -------------------------
-        # Acceleration
-        # -------------------------
         prev_momentum = (closes.iloc[-2] - closes.iloc[-11]) / closes.iloc[-11]
         prev_momentum = max(0.0, min(1.0, 0.5 + prev_momentum))
 
         acceleration = momentum > prev_momentum
 
-        # -------------------------
-        # Strength
-        # -------------------------
         momentum_strength = abs(momentum - 0.5)
 
-        # 🔥 CRO LOGIC (ذكي وموزون)
         early = (
             (compression and breakout) or
             (breakout and acceleration)
         ) and momentum_strength > 0.06
 
         return early, compression, acceleration
+
+    # -------------------------------------------------
+    def _detect_liquidity_compression_breakout(self, df):
+
+        highs = df["high"]
+        lows = df["low"]
+        closes = df["close"]
+
+        if len(df) < 20:
+            return 0.0
+
+        prev_high = highs.iloc[-10:-5].max()
+        prev_low = lows.iloc[-10:-5].min()
+
+        last_high = highs.iloc[-6]
+        last_low = lows.iloc[-6]
+
+        sweep_up = last_high > prev_high
+        sweep_down = last_low < prev_low
+
+        if not (sweep_up or sweep_down):
+            return 0.0
+
+        compression_range = highs.iloc[-5:].max() - lows.iloc[-5:].min()
+        prior_range = highs.iloc[-15:-5].max() - lows.iloc[-15:-5].min()
+
+        if prior_range == 0:
+            return 0.0
+
+        compression_ratio = compression_range / prior_range
+
+        if compression_ratio > 0.5:
+            return 0.0
+
+        breakout_up = closes.iloc[-1] > highs.iloc[-5:-1].max()
+        breakout_down = closes.iloc[-1] < lows.iloc[-5:-1].min()
+
+        if breakout_up or breakout_down:
+            return 0.15
+
+        return 0.0
+
+    # -------------------------------------------------
+    def _compute_trend_strength(self, df):
+
+        closes = df["close"]
+
+        if len(closes) < 20:
+            return 0.5
+
+        trend = (closes.iloc[-1] - closes.iloc[-20]) / closes.iloc[-20]
+
+        return max(0.0, min(1.0, 0.5 + trend))
+
+    # -------------------------------------------------
+    def _compute_volatility(self, df):
+
+        returns = df["close"].pct_change().dropna()
+
+        if len(returns) < 20:
+            return 0.5
+
+        vol = returns[-20:].std()
+
+        return max(0.0, min(1.0, vol * 10))
+
+    # -------------------------------------------------
+    def _compute_momentum(self, df):
+
+        closes = df["close"]
+
+        if len(closes) < 10:
+            return 0.5
+
+        momentum = (closes.iloc[-1] - closes.iloc[-10]) / closes.iloc[-10]
+
+        return max(0.0, min(1.0, 0.5 + momentum))

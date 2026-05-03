@@ -19,7 +19,7 @@ class DecisionEngineV3:
         self.transition_threshold = 7
 
     # -------------------------------------------------
-    # 🧠 Smart Gate (محسن - يدعم SELL)
+    # 🧠 Smart Gate (محسن - يدعم SELL + EARLY)
     # -------------------------------------------------
     def gate(self, data):
 
@@ -28,16 +28,19 @@ class DecisionEngineV3:
 
         strength = data.get("strength", 0)
         momentum = data.get("momentum")
+        early = data.get("early_entry", False)
 
-        # 🔥 BUY يحتاج قوة أعلى
+        # 🔥 BUY يحتاج قوة
         if momentum == "up" and strength < 0.45:
             return "WEAK MOMENTUM"
 
-        # 🔥 SELL (معدل باحتراف)
+        # 🔥 SELL (ذكي + يسمح بالبداية)
         if momentum == "down":
             if strength < 0.40:
                 return "WEAK MOMENTUM"
-            if not data.get("breakout"):
+
+            # 👇 الفرق الحقيقي
+            if not data.get("breakout") and not early:
                 return "WEAK MOMENTUM"
 
         # 🔥 لا نقتل الرينج إلا إذا فاضي
@@ -159,11 +162,12 @@ class DecisionEngineV3:
                 "mode": "BLOCKED",
                 "size": 0,
                 "reasons": [gate_reason],
-                "entry_type": "STANDARD"  # 🔥 ثابت
+                "entry_type": "STANDARD"
             }
 
         mode = self.detect_mode(data)
 
+        # =============================
         if mode == "TREND":
             score = self.calculate_trend_score(data)
             threshold = self.trend_threshold
@@ -203,6 +207,21 @@ class DecisionEngineV3:
         # 🔥 Intelligence Layer
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
+        # =========================================
+        # 🔥 CRO EARLY LOGIC
+        # =========================================
+        early = data.get("early_entry", False)
+
+        # حماية من الإشارات الضعيفة
+        if early and data.get("strength", 0) < 0.5:
+            early = False
+
+        # تسريع ذكي
+        if early:
+            threshold -= 0.5
+
+        # =========================================
+
         if score >= threshold:
             decision = "ENTER"
         elif score >= threshold - 2:
@@ -210,8 +229,6 @@ class DecisionEngineV3:
         else:
             decision = "IGNORE"
 
-        # 🔥 NEW: EARLY DISPLAY ONLY
-        early = data.get("early_entry", False)
         entry_type = "EARLY" if early else "STANDARD"
 
         return {

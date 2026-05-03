@@ -8,12 +8,9 @@ class StrategyEngine:
 
     def __init__(self):
 
-        # Context engines
         self.historical_engine = HistoricalContextEngine()
         self.volatility_engine = VolatilityContextEngine()
 
-    # -------------------------------------------------
-    # Main Signal Detection
     # -------------------------------------------------
     def detect(self, symbol, df):
 
@@ -24,12 +21,10 @@ class StrategyEngine:
         volatility = self._compute_volatility(df)
         momentum = self._compute_momentum(df)
 
-        # -------------------------------------------------
-        # 🔥 Early Expansion Detection (محسن)
-        # -------------------------------------------------
+        # 🔥 EARLY (محسن CRO)
         early, compression, acceleration = self._detect_early_expansion(df, momentum)
 
-        # baseline contextual scores
+        # baseline
         structure_score = trend_strength
         liquidity_score = 0.5
         session_score = 0.5
@@ -40,13 +35,9 @@ class StrategyEngine:
         base_score = momentum
 
         # -------------------------------------------------
-        # Liquidity Compression Breakout Detection
-        # -------------------------------------------------
         pattern_boost = self._detect_liquidity_compression_breakout(df)
         base_score = min(1.0, base_score + pattern_boost)
 
-        # -------------------------------------------------
-        # Consistency Adjustment (محافظ)
         # -------------------------------------------------
         scores = [structure_score, liquidity_score, factor_score]
 
@@ -61,13 +52,8 @@ class StrategyEngine:
         base_score = max(0.0, min(1.0, base_score))
 
         # -------------------------------------------------
-        # Volatility Context
-        # -------------------------------------------------
         volatility_score = self.volatility_engine.evaluate(df)
 
-        # -------------------------------------------------
-        # Historical Context
-        # -------------------------------------------------
         market_features = {
             "trend_strength": trend_strength,
             "volatility": volatility,
@@ -79,8 +65,7 @@ class StrategyEngine:
         historical_score = self.historical_engine.evaluate(market_features)
 
         # -------------------------------------------------
-        # Direction (ثابت)
-        # -------------------------------------------------
+        # Direction (ثابت - لا نلمسه هون)
         if momentum > 0.52:
             direction = "up"
         elif momentum < 0.48:
@@ -89,8 +74,6 @@ class StrategyEngine:
             direction = "neutral"
 
         # -------------------------------------------------
-        # Build Signal Object
-        # -------------------------------------------------
         signal = {
             "symbol": symbol,
             "base_score": base_score,
@@ -98,12 +81,11 @@ class StrategyEngine:
             "momentum": direction,
             "strength": abs(momentum - 0.5) * 2,
 
-            # 🔥 CRO Layer (بدون تأثير على القرار)
+            # 🔥 CRO Layer
             "early_entry": early,
             "compression": compression,
             "acceleration": acceleration,
 
-            # scores
             "structure_score": structure_score,
             "liquidity_score": liquidity_score,
             "session_score": session_score,
@@ -117,7 +99,7 @@ class StrategyEngine:
         return signal
 
     # -------------------------------------------------
-    # 🔥 Early Expansion Logic (محسن بدقة)
+    # 🔥 EARLY ENGINE (نسخة CRO محسنة)
     # -------------------------------------------------
     def _detect_early_expansion(self, df, momentum):
 
@@ -129,15 +111,15 @@ class StrategyEngine:
         closes = df["close"]
 
         # -------------------------
-        # Compression
+        # Compression (خففنا الشرط)
         # -------------------------
         recent_range = highs.iloc[-10:].max() - lows.iloc[-10:].min()
         prev_range = highs.iloc[-20:-10].max() - lows.iloc[-20:-10].min()
 
-        compression = prev_range > 0 and (recent_range / prev_range) < 0.7
+        compression = prev_range > 0 and (recent_range / prev_range) < 0.85
 
         # -------------------------
-        # Fresh Breakout
+        # Breakout
         # -------------------------
         breakout_up = closes.iloc[-1] > highs.iloc[-5:-1].max()
         breakout_down = closes.iloc[-1] < lows.iloc[-5:-1].min()
@@ -153,100 +135,14 @@ class StrategyEngine:
         acceleration = momentum > prev_momentum
 
         # -------------------------
-        # 🔥 تحسين CRO (فلترة الذكاء)
+        # Strength
         # -------------------------
         momentum_strength = abs(momentum - 0.5)
 
+        # 🔥 CRO LOGIC (ذكي وموزون)
         early = (
-            compression
-            and breakout
-            and acceleration
-            and momentum_strength > 0.08
-        )
+            (compression and breakout) or
+            (breakout and acceleration)
+        ) and momentum_strength > 0.06
 
         return early, compression, acceleration
-
-    # -------------------------------------------------
-    # Liquidity Compression Breakout Pattern
-    # -------------------------------------------------
-    def _detect_liquidity_compression_breakout(self, df):
-
-        highs = df["high"]
-        lows = df["low"]
-        closes = df["close"]
-
-        if len(df) < 20:
-            return 0.0
-
-        prev_high = highs.iloc[-10:-5].max()
-        prev_low = lows.iloc[-10:-5].min()
-
-        last_high = highs.iloc[-6]
-        last_low = lows.iloc[-6]
-
-        sweep_up = last_high > prev_high
-        sweep_down = last_low < prev_low
-
-        if not (sweep_up or sweep_down):
-            return 0.0
-
-        compression_range = highs.iloc[-5:].max() - lows.iloc[-5:].min()
-        prior_range = highs.iloc[-15:-5].max() - lows.iloc[-15:-5].min()
-
-        if prior_range == 0:
-            return 0.0
-
-        compression_ratio = compression_range / prior_range
-
-        if compression_ratio > 0.5:
-            return 0.0
-
-        breakout_up = closes.iloc[-1] > highs.iloc[-5:-1].max()
-        breakout_down = closes.iloc[-1] < lows.iloc[-5:-1].min()
-
-        if breakout_up or breakout_down:
-            return 0.15
-
-        return 0.0
-
-    # -------------------------------------------------
-    # Trend Strength
-    # -------------------------------------------------
-    def _compute_trend_strength(self, df):
-
-        closes = df["close"]
-
-        if len(closes) < 20:
-            return 0.5
-
-        trend = (closes.iloc[-1] - closes.iloc[-20]) / closes.iloc[-20]
-
-        return max(0.0, min(1.0, 0.5 + trend))
-
-    # -------------------------------------------------
-    # Volatility
-    # -------------------------------------------------
-    def _compute_volatility(self, df):
-
-        returns = df["close"].pct_change().dropna()
-
-        if len(returns) < 20:
-            return 0.5
-
-        vol = returns[-20:].std()
-
-        return max(0.0, min(1.0, vol * 10))
-
-    # -------------------------------------------------
-    # Momentum
-    # -------------------------------------------------
-    def _compute_momentum(self, df):
-
-        closes = df["close"]
-
-        if len(closes) < 10:
-            return 0.5
-
-        momentum = (closes.iloc[-1] - closes.iloc[-10]) / closes.iloc[-10]
-
-        return max(0.0, min(1.0, 0.5 + momentum))

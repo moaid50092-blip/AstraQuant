@@ -11,6 +11,9 @@ from decision.decision_engine_v3 import DecisionEngineV3
 # 🔥 RANGE
 from context.range_engine_v2 import RangeEngineV2
 
+# 🔥 NEW: MARKET STATE
+from market.market_state_engine import MarketStateEngine
+
 
 class Scanner:
 
@@ -31,6 +34,9 @@ class Scanner:
         self.decision_engine = DecisionEngineV3()
 
         self.range_engine = RangeEngineV2()
+
+        # 🔥 NEW
+        self.market_state_engine = MarketStateEngine()
 
     # -------------------------------------------------
     def run_scan(self, market_data):
@@ -69,13 +75,13 @@ class Scanner:
             strategy_count += 1
 
             # -----------------------------------------
-            # 🔥 Probability (من الاستراتيجية)
+            # Probability
             # -----------------------------------------
             probability = strategy_signal.get("base_score", 0.5)
             probability_count += 1
 
             # -----------------------------------------
-            # 🔥 HYBRID MOMENTUM (الحل الاحترافي)
+            # HYBRID MOMENTUM
             # -----------------------------------------
             hybrid_strength = (
                 0.6 * strategy_signal["strength"] +
@@ -85,7 +91,6 @@ class Scanner:
             self.momentum_tracker.update(symbol, hybrid_strength)
             momentum_info = self.momentum_tracker.get_momentum_info(symbol)
 
-            # 🔥 تصحيح الاتجاه من الاستراتيجية
             if strategy_signal["momentum"] != "neutral":
                 momentum_info["direction"] = strategy_signal["momentum"]
 
@@ -156,9 +161,9 @@ class Scanner:
             })
 
             # -----------------------------------------
-            # Store ALL signals
+            # Store signals
             # -----------------------------------------
-            all_signals.append({
+            signal_data = {
                 "symbol": symbol,
                 "probability": float(probability),
 
@@ -187,15 +192,17 @@ class Scanner:
                 "range_active": range_info["range_active"],
                 "range_signal": range_info["signal"],
                 "range_confidence": range_info["confidence"]
-            })
+            }
+
+            all_signals.append(signal_data)
 
             # -----------------------------------------
-            # Filter
+            # Filter ENTER
             # -----------------------------------------
             if decision["decision"] != "ENTER":
                 continue
 
-            opportunity = {
+            opportunities.append({
                 "symbol": symbol,
                 "signal": strategy_signal,
                 "probability_score": probability,
@@ -216,13 +223,18 @@ class Scanner:
                 "confidence": context_v2["confidence_label"],
 
                 "range_signal": range_info["signal"]
-            }
+            })
 
-            opportunities.append(opportunity)
+        # -----------------------------------------
+        # 🌍 MARKET STATE (CRO LAYER)
+        # -----------------------------------------
+        market_state, market_reason = self.market_state_engine.evaluate(all_signals)
 
         return {
             "opportunities": opportunities,
             "all_signals": all_signals,
+            "market_state": market_state,
+            "market_reason": market_reason,
             "metrics": {
                 "strategy_count": strategy_count,
                 "probability_count": probability_count

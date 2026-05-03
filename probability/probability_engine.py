@@ -1,38 +1,38 @@
-# probability/probability_engine.py
-
 class ProbabilityEngine:
 
     def __init__(self):
-        # 🔥 weights خفيفة (ما تكسر النظام)
-        self.weights = {
-            "structure": 0.15,
-            "liquidity": 0.10,
-            "session": 0.05,
-            "context": 0.10,
-            "mtf": 0.15,
-            "factor": 0.10,
-            "historical": 0.10,
-            "volatility": 0.10
-        }
+        pass
 
     # -------------------------------------------------
     def evaluate(self, signal):
 
-        edge = signal.get("base_score", 0.5)
+        base = signal.get("base_score", 0.5)
 
-        # 🔥 additive بدل multiplicative
-        edge += (signal.get("structure_score", 0.5) - 0.5) * self.weights["structure"]
-        edge += (signal.get("liquidity_score", 0.5) - 0.5) * self.weights["liquidity"]
-        edge += (signal.get("session_score", 0.5) - 0.5) * self.weights["session"]
-        edge += (signal.get("context_score", 0.5) - 0.5) * self.weights["context"]
-        edge += (signal.get("mtf_score", 0.5) - 0.5) * self.weights["mtf"]
-        edge += (signal.get("factor_score", 0.5) - 0.5) * self.weights["factor"]
-        edge += (signal.get("historical_score", 0.5) - 0.5) * self.weights["historical"]
-        edge += (signal.get("volatility_score", 0.5) - 0.5) * self.weights["volatility"]
+        modifiers = [
+            signal.get("structure_score", 0.5),
+            signal.get("liquidity_score", 0.5),
+            signal.get("session_score", 0.5),
+            signal.get("context_score", 0.5),
+            signal.get("mtf_score", 0.5),
+            signal.get("factor_score", 0.5),
+            signal.get("historical_score", 0.5),
+            signal.get("volatility_score", 0.5)
+        ]
 
-        # 🔥 Early boost (خفيف جدًا)
-        if signal.get("early_entry"):
-            edge += 0.05
+        # =========================================
+        # 🔥 CRO CORE LOGIC
+        # =========================================
+
+        # نحسب الانحراف عن 0.5
+        deviations = [(m - 0.5) for m in modifiers]
+
+        # متوسط التأثير
+        avg_dev = sum(deviations) / len(deviations)
+
+        # قوة التأثير (تضخيم ذكي)
+        edge = base + (avg_dev * 1.8)
+
+        # =========================================
 
         return self._normalize(edge)
 
@@ -41,6 +41,7 @@ class ProbabilityEngine:
 
         if value < 0:
             return 0
+
         if value > 1:
             return 1
 

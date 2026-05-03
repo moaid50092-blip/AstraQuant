@@ -7,13 +7,15 @@ class MomentumTracker:
         self.window_size = window_size
         self.history = {}
 
-    def update(self, symbol, probability):
+    def update(self, symbol, base_score):
+
         if symbol not in self.history:
             self.history[symbol] = deque(maxlen=self.window_size)
 
-        self.history[symbol].append(float(probability))
+        self.history[symbol].append(float(base_score))
 
     def get_momentum_info(self, symbol):
+
         values = list(self.history.get(symbol, []))
 
         if len(values) < 2:
@@ -34,7 +36,6 @@ class MomentumTracker:
 
         total_moves = increases + decreases
 
-        # direction
         if increases > decreases:
             direction = "up"
         elif decreases > increases:
@@ -42,12 +43,10 @@ class MomentumTracker:
         else:
             direction = "neutral"
 
-        # strength (0 → 1)
         strength = increases / total_moves if total_moves > 0 else 0.0
-        strength = round(strength, 2)
 
         return {
             "direction": direction,
-            "strength": strength,
+            "strength": round(strength, 2),
             "history": values
         }

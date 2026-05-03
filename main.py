@@ -75,35 +75,36 @@ def run_engine():
                 confidence = s.get("confidence_label", "")
                 confidence_score = round(s.get("confidence_score", 0), 2)
 
-                # 🔥 RANGE (NEW)
+                # 🔥 RANGE
                 range_active = s.get("range_active", False)
                 range_signal = s.get("range_signal", None)
                 range_conf = round(s.get("range_confidence", 0), 2)
 
+                # 🔥 EARLY
+                entry_type = s.get("entry_type", "STANDARD")
+                early_flag = "⚡ EARLY" if entry_type == "EARLY" else ""
+
                 # تنظيف
                 prob_clean = round(prob, 3)
-                strength_clean = round(strength, 2)
                 history_clean = [round(x, 3) for x in history]
 
-                # Setup Label
-                if setup == "real":
-                    setup_label = "🔥 REAL"
-                elif setup == "weak":
-                    setup_label = "🟡 WEAK"
-                elif setup == "fake":
-                    setup_label = "❌ FAKE"
+                # 🔥 Strength Label (تحويل ذكي)
+                if strength >= 0.75:
+                    strength_label = "🔥 STRONG"
+                elif strength >= 0.5:
+                    strength_label = "🟡 BUILDING"
                 else:
-                    setup_label = "⚪ UNKNOWN"
+                    strength_label = "⚠️ WEAK"
 
-                # MTF Label
-                if mtf_alignment == "strong":
-                    mtf_label = "🔥 STRONG"
-                elif mtf_alignment == "medium":
-                    mtf_label = "🟡 MEDIUM"
+                # 🔥 Direction Arrow
+                if direction == "up":
+                    arrow = "↑"
+                elif direction == "down":
+                    arrow = "↓"
                 else:
-                    mtf_label = "⚠️ WEAK"
+                    arrow = "→"
 
-                # Decision Label
+                # 🔥 Decision Label
                 if decision == "ENTER":
                     decision_label = f"🚀 ENTER {direction}"
                 elif decision == "WATCH":
@@ -111,7 +112,7 @@ def run_engine():
                 else:
                     decision_label = "❌ IGNORE"
 
-                # Confidence Label
+                # 🔥 Confidence Label (منع التضارب)
                 if confidence == "HIGH":
                     conf_label = f"🧠 HIGH ({confidence_score})"
                 elif confidence == "MEDIUM":
@@ -119,7 +120,7 @@ def run_engine():
                 else:
                     conf_label = f"⚠️ LOW ({confidence_score})"
 
-                # 🔥 Range Label (احترافي)
+                # 🔥 Range Label
                 if range_active:
                     if range_signal:
                         range_label = f"📦 RANGE → {range_signal} ({range_conf})"
@@ -128,13 +129,24 @@ def run_engine():
                 else:
                     range_label = ""
 
+                # 🔥 HEADER الجديد
                 print(
-                    f"{symbol} → {prob_clean} "
-                    f"({mom}, str={strength_clean}) | {setup_label} | {mtf_label} | {decision_label} | {conf_label} {range_label}"
+                    f"{symbol} → {prob_clean} {arrow} "
+                    f"({strength_label}) {early_flag} | {decision_label} | {conf_label} {range_label}"
                 )
 
+                # 🔥 تفاصيل السوق
                 print(f"   ↳ trend: {trend} | zone: {zone} | breakout: {breakout}")
                 print(f"   ↳ MTF: 1m={t1} | 5m={t5} | 15m={t15}")
+                print(f"   ↳ setup: {setup} | alignment: {mtf_alignment}")
+
+                # 🔥 EARLY explanation
+                if entry_type == "EARLY":
+                    compression = s.get("compression", False)
+                    acceleration = s.get("acceleration", False)
+                    print(f"   ↳ ⚡ early: compression={compression}, acceleration={acceleration}")
+
+                # 🔥 History
                 print(f"   ↳ hist: {history_clean}")
 
                 if reasons:

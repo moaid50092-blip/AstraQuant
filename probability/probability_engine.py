@@ -30,7 +30,7 @@ class ProbabilityEngine:
         avg_dev = sum(deviations) / len(deviations)
 
         # قوة التأثير (تضخيم ذكي)
-        edge = base + (avg_dev * 1.8)
+        edge = base + (avg_dev * 1.3)
 
         # =========================================
 

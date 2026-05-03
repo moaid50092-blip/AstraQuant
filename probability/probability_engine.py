@@ -20,17 +20,45 @@ class ProbabilityEngine:
         ]
 
         # =========================================
-        # 🔥 CRO CORE LOGIC
+        # 🔥 CRO CORE LOGIC (Dynamic Edge)
         # =========================================
 
-        # نحسب الانحراف عن 0.5
+        # deviation from neutral
         deviations = [(m - 0.5) for m in modifiers]
 
-        # متوسط التأثير
         avg_dev = sum(deviations) / len(deviations)
 
-        # قوة التأثير (تضخيم ذكي)
-        edge = base + (avg_dev * 1.3)
+        # 🔥 Adaptive Multiplier (حسب قوة السوق)
+        strength = abs(base - 0.5)
+
+        if strength > 0.15:
+            multiplier = 1.6   # سوق قوي
+        elif strength > 0.08:
+            multiplier = 1.4   # متوسط
+        else:
+            multiplier = 1.2   # سوق ضعيف
+
+        edge = base + (avg_dev * multiplier)
+
+        # =========================================
+        # 🔥 NON-LINEAR PUSH (يعطي حركة حقيقية)
+        # =========================================
+
+        if edge > 0.55:
+            edge += (edge - 0.55) * 0.6
+
+        elif edge < 0.45:
+            edge -= (0.45 - edge) * 0.6
+
+        # =========================================
+        # 🔥 EARLY INTELLIGENCE BOOST
+        # =========================================
+
+        if signal.get("early_entry"):
+            edge += 0.03
+
+        if signal.get("acceleration"):
+            edge += 0.02
 
         # =========================================
 

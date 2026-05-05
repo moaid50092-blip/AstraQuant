@@ -26,14 +26,15 @@ class DecisionEngineV3:
         momentum = data.get("momentum")
         early = data.get("early_entry", False)
 
+        # BUY
         if momentum == "up" and strength < 0.45:
             return "WEAK MOMENTUM"
 
+        # SELL (تم تخفيفه لدعم Trend SELL Layer)
         if momentum == "down":
             if strength < 0.40:
                 return "WEAK MOMENTUM"
-            if not data.get("breakout") and not early:
-                return "WEAK MOMENTUM"
+            # ❌ لم نعد نطلب breakout هنا
 
         if data.get("trend") == "range" and not data.get("range_signal"):
             return "EMPTY RANGE"
@@ -88,7 +89,6 @@ class DecisionEngineV3:
         if not signal:
             return 0, None
 
-        # 🔥 تحسين الكونفيدنس (normalized)
         conf_score = min(1.0, conf / 2)
 
         score = conf_score * 2
@@ -106,7 +106,6 @@ class DecisionEngineV3:
         prob = data.get("probability", 0)
         confidence = data.get("confidence", "MEDIUM")
 
-        # 🔥 Probability صار أساسي
         if prob > 0.58:
             score += 1.0
         elif prob > 0.54:
@@ -114,7 +113,6 @@ class DecisionEngineV3:
         elif prob < 0.48:
             threshold += 1.0
 
-        # 🔥 Confidence أقوى
         if confidence == "HIGH":
             score += 0.7
         elif confidence == "LOW":
@@ -126,7 +124,7 @@ class DecisionEngineV3:
     def position_size(self, score, prob):
 
         if prob > 0.6 and score >= 8:
-            return 1.2  # 🔥 Aggressive
+            return 1.2
 
         if score >= 8:
             return 1.0
@@ -169,10 +167,35 @@ class DecisionEngineV3:
         mode = self.detect_mode(data)
 
         # =========================
+        # 🔥 SELL LAYER (احترافي)
+        # =========================
+
+        mtf = data.get("mtf", {})
+
+        trend_sell_ok = (
+            data.get("trend") == "down" and
+            data.get("momentum") == "down" and
+            data.get("strength", 0) >= 0.55 and
+            mtf.get("1m") == "down" and
+            mtf.get("5m") != "up" and
+            data.get("setup") in ["real", "strong"]
+        )
+
+        # =========================
         # TRACK A → CONFIRMED
         # =========================
 
-        if mode == "TREND":
+        if trend_sell_ok:
+            score = self.calculate_trend_score(data)
+            threshold = self.transition_threshold - 0.5
+            direction = "down"
+            mode = "TREND"
+
+            # عقوبة إذا 15m مش داعم
+            if mtf.get("15m") != "down":
+                threshold += 0.3
+
+        elif mode == "TREND":
             score = self.calculate_trend_score(data)
             threshold = self.trend_threshold
             direction = data["momentum"]
@@ -201,13 +224,13 @@ class DecisionEngineV3:
         direction = self.apply_direction_overlay(data, direction)
 
         # =========================
-        # 🔥 INTELLIGENCE LAYER
+        # 🔥 INTELLIGENCE
         # =========================
 
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
         # =========================
-        # 🔥 EARLY TRACK (منفصل)
+        # 🔥 EARLY TRACK
         # =========================
 
         early = data.get("early_entry", False)
@@ -227,7 +250,6 @@ class DecisionEngineV3:
             early = False
             early_score = 0
 
-        # 🔥 تخفيف threshold للـ early فقط
         early_threshold = threshold
 
         if early_score >= 2:

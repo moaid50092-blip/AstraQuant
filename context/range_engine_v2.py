@@ -9,8 +9,6 @@ class RangeEngineV2:
         self.min_range_ratio = min_range_ratio
 
     # -----------------------------------------
-    # 1️⃣ Detect Range
-    # -----------------------------------------
     def detect_range(self, df):
 
         if len(df) < self.window:
@@ -29,18 +27,20 @@ class RangeEngineV2:
 
         range_ratio = range_size / avg_price
 
-        # 🔥 فلترة الرينج الضعيف
         if range_ratio < self.min_range_ratio:
             return None
+
+        # 🔥 قوة الرينج (كل ما كان أوضح = أفضل)
+        compression = (recent["high"] - recent["low"]).std()
+        strength = min(1.0, (range_ratio / self.min_range_ratio) * 0.5)
 
         return {
             "high": high,
             "low": low,
-            "size": range_size
+            "size": range_size,
+            "strength": strength
         }
 
-    # -----------------------------------------
-    # 2️⃣ Location
     # -----------------------------------------
     def detect_location(self, price, range_data):
 
@@ -57,12 +57,10 @@ class RangeEngineV2:
         return "middle"
 
     # -----------------------------------------
-    # 3️⃣ Rejection (Wick Logic)
-    # -----------------------------------------
     def detect_rejection(self, df):
 
         if len(df) < 2:
-            return None
+            return None, 0
 
         last = df.iloc[-1]
 
@@ -76,40 +74,42 @@ class RangeEngineV2:
         upper_wick = high - max(open_, close)
         lower_wick = min(open_, close) - low
 
+        # 🔥 قوة الرفض
         if upper_wick > body * 1.5:
-            return "bearish"
+            strength = min(1.0, upper_wick / (body + 1e-6))
+            return "bearish", strength
 
         if lower_wick > body * 1.5:
-            return "bullish"
+            strength = min(1.0, lower_wick / (body + 1e-6))
+            return "bullish", strength
 
-        return None
+        return None, 0
 
-    # -----------------------------------------
-    # 4️⃣ Fake Breakout
     # -----------------------------------------
     def detect_fake_breakout(self, df, range_data):
 
         if len(df) < 2:
-            return None
+            return None, 0
 
         last = df.iloc[-1]
 
-        if last["high"] > range_data["high"] and last["close"] < range_data["high"]:
-            return "fake_up"
+        high = range_data["high"]
+        low = range_data["low"]
 
-        if last["low"] < range_data["low"] and last["close"] > range_data["low"]:
-            return "fake_down"
+        # 🔥 fake breakout strength
+        if last["high"] > high and last["close"] < high:
+            strength = (last["high"] - high) / high
+            return "fake_up", min(1.0, strength * 10)
 
-        return None
+        if last["low"] < low and last["close"] > low:
+            strength = (low - last["low"]) / low
+            return "fake_down", min(1.0, strength * 10)
 
-    # -----------------------------------------
-    # 5️⃣ Main Analyze (نسخة احترافية)
+        return None, 0
+
     # -----------------------------------------
     def analyze(self, df, momentum_dir=None):
 
-        # -----------------------------------------
-        # Default Output (مهم جدًا)
-        # -----------------------------------------
         result = {
             "range_active": False,
             "signal": None,
@@ -121,9 +121,6 @@ class RangeEngineV2:
             "range_low": None
         }
 
-        # -----------------------------------------
-        # Detect Range
-        # -----------------------------------------
         range_data = self.detect_range(df)
 
         if range_data is None:
@@ -133,12 +130,9 @@ class RangeEngineV2:
 
         price = df["close"].iloc[-1]
 
-        # -----------------------------------------
-        # Context
-        # -----------------------------------------
         location = self.detect_location(price, range_data)
-        rejection = self.detect_rejection(df)
-        fake_break = self.detect_fake_breakout(df, range_data)
+        rejection, rej_strength = self.detect_rejection(df)
+        fake_break, fake_strength = self.detect_fake_breakout(df, range_data)
 
         result["location"] = location
         result["rejection"] = rejection
@@ -150,31 +144,49 @@ class RangeEngineV2:
         confidence = 0
 
         # -----------------------------------------
-        # 🎯 Entry Logic
+        # 🎯 Entry Logic (Weighted)
         # -----------------------------------------
 
         # BUY
-        if location == "bottom" and (rejection == "bullish" or fake_break == "fake_down"):
-            signal = "BUY"
-            confidence += 1
+        if location == "bottom":
+            if rejection == "bullish":
+                signal = "BUY"
+                confidence += 0.8 + rej_strength
+
+            if fake_break == "fake_down":
+                signal = "BUY"
+                confidence += 0.8 + fake_strength
 
         # SELL
-        elif location == "top" and (rejection == "bearish" or fake_break == "fake_up"):
-            signal = "SELL"
-            confidence += 1
+        elif location == "top":
+            if rejection == "bearish":
+                signal = "SELL"
+                confidence += 0.8 + rej_strength
+
+            if fake_break == "fake_up":
+                signal = "SELL"
+                confidence += 0.8 + fake_strength
 
         # -----------------------------------------
         # 🔥 Momentum Confluence
         # -----------------------------------------
-        if momentum_dir:
+        if momentum_dir and signal:
             if (signal == "BUY" and momentum_dir == "up") or \
                (signal == "SELL" and momentum_dir == "down"):
                 confidence += 0.5
 
         # -----------------------------------------
-        # Save
+        # 🔥 Range Strength Boost
         # -----------------------------------------
+        confidence *= range_data["strength"]
+
+        # -----------------------------------------
+        # 🔥 Normalize
+        # -----------------------------------------
+        confidence = min(2.5, confidence)
+        confidence = round(confidence, 2)
+
         result["signal"] = signal
-        result["confidence"] = round(confidence, 2)
+        result["confidence"] = confidence
 
         return result

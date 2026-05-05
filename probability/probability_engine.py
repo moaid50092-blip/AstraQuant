@@ -20,46 +20,74 @@ class ProbabilityEngine:
         ]
 
         # =========================================
-        # 🔥 CRO CORE LOGIC (Dynamic Edge)
+        # 🔥 STEP 1: BASE EDGE
         # =========================================
 
-        # deviation from neutral
         deviations = [(m - 0.5) for m in modifiers]
-
         avg_dev = sum(deviations) / len(deviations)
 
-        # 🔥 Adaptive Multiplier (حسب قوة السوق)
         strength = abs(base - 0.5)
 
         if strength > 0.15:
-            multiplier = 1.6   # سوق قوي
+            multiplier = 1.7
         elif strength > 0.08:
-            multiplier = 1.4   # متوسط
+            multiplier = 1.5
         else:
-            multiplier = 1.2   # سوق ضعيف
+            multiplier = 1.25
 
         edge = base + (avg_dev * multiplier)
 
         # =========================================
-        # 🔥 NON-LINEAR PUSH (يعطي حركة حقيقية)
+        # 🔥 STEP 2: AGREEMENT BOOST
         # =========================================
 
-        if edge > 0.55:
-            edge += (edge - 0.55) * 0.6
+        aligned = sum(1 for m in modifiers if abs(m - 0.5) > 0.08)
 
-        elif edge < 0.45:
-            edge -= (0.45 - edge) * 0.6
+        if aligned >= 6:
+            edge += 0.04
+        elif aligned <= 2:
+            edge -= 0.04
 
         # =========================================
-        # 🔥 EARLY INTELLIGENCE BOOST
+        # 🔥 STEP 3: DISPERSION FILTER
+        # =========================================
+
+        mean = sum(modifiers) / len(modifiers)
+        variance = sum((m - mean) ** 2 for m in modifiers) / len(modifiers)
+        std = variance ** 0.5
+
+        if std > 0.18:
+            edge -= 0.05   # تضارب عالي = تقليل الثقة
+
+        elif std < 0.08:
+            edge += 0.05   # توافق عالي = تعزيز
+
+        # =========================================
+        # 🔥 STEP 4: NON-LINEAR EXPANSION
+        # =========================================
+
+        if edge > 0.56:
+            edge += (edge - 0.56) * 0.8
+
+        elif edge < 0.44:
+            edge -= (0.44 - edge) * 0.8
+
+        # =========================================
+        # 🔥 STEP 5: EARLY INTELLIGENCE (SMART)
         # =========================================
 
         if signal.get("early_entry"):
-            edge += 0.03
-
-        if signal.get("acceleration"):
             edge += 0.02
 
+        if signal.get("acceleration"):
+            edge += 0.025
+
+        # إذا الاثنين موجودين
+        if signal.get("early_entry") and signal.get("acceleration"):
+            edge += 0.02
+
+        # =========================================
+        # 🔥 STEP 6: FINAL CLAMP
         # =========================================
 
         return self._normalize(edge)

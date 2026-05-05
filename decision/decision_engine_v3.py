@@ -17,8 +17,6 @@ class DecisionEngineV3:
         self.transition_threshold = 7
 
     # -------------------------------------------------
-    # 🧠 Smart Gate (SELL + EARLY Aware)
-    # -------------------------------------------------
     def gate(self, data):
 
         if data.get("setup") == "fake":
@@ -28,19 +26,15 @@ class DecisionEngineV3:
         momentum = data.get("momentum")
         early = data.get("early_entry", False)
 
-        # BUY
         if momentum == "up" and strength < 0.45:
             return "WEAK MOMENTUM"
 
-        # SELL (يسمح بالبدايات الذكية)
         if momentum == "down":
             if strength < 0.40:
                 return "WEAK MOMENTUM"
-
             if not data.get("breakout") and not early:
                 return "WEAK MOMENTUM"
 
-        # RANGE
         if data.get("trend") == "range" and not data.get("range_signal"):
             return "EMPTY RANGE"
 
@@ -94,12 +88,15 @@ class DecisionEngineV3:
         if not signal:
             return 0, None
 
-        score = conf * 1.5
+        # 🔥 تحسين الكونفيدنس (normalized)
+        conf_score = min(1.0, conf / 2)
+
+        score = conf_score * 2
         score += self.weights["range"]
 
         if (signal == "BUY" and data["momentum"] == "up") or \
            (signal == "SELL" and data["momentum"] == "down"):
-            score += 0.3
+            score += 0.5
 
         return score, signal
 
@@ -109,20 +106,27 @@ class DecisionEngineV3:
         prob = data.get("probability", 0)
         confidence = data.get("confidence", "MEDIUM")
 
-        if prob > 0.6:
+        # 🔥 Probability صار أساسي
+        if prob > 0.58:
+            score += 1.0
+        elif prob > 0.54:
             score += 0.5
-        elif prob < 0.5:
-            threshold += 0.5
+        elif prob < 0.48:
+            threshold += 1.0
 
+        # 🔥 Confidence أقوى
         if confidence == "HIGH":
-            score += 0.5
+            score += 0.7
         elif confidence == "LOW":
-            threshold += 0.7
+            threshold += 1.0
 
         return score, threshold
 
     # -------------------------------------------------
-    def position_size(self, score):
+    def position_size(self, score, prob):
+
+        if prob > 0.6 and score >= 8:
+            return 1.2  # 🔥 Aggressive
 
         if score >= 8:
             return 1.0
@@ -164,7 +168,10 @@ class DecisionEngineV3:
 
         mode = self.detect_mode(data)
 
-        # -------------------------
+        # =========================
+        # TRACK A → CONFIRMED
+        # =========================
+
         if mode == "TREND":
             score = self.calculate_trend_score(data)
             threshold = self.trend_threshold
@@ -191,22 +198,18 @@ class DecisionEngineV3:
             threshold = self.transition_threshold
             direction = data["momentum"]
 
-        # -------------------------
         direction = self.apply_direction_overlay(data, direction)
 
-        # Zone Boost
-        if data.get("trend") == "up" and data.get("zone") == "low":
-            score += 0.5
+        # =========================
+        # 🔥 INTELLIGENCE LAYER
+        # =========================
 
-        if data.get("trend") == "down" and data.get("zone") == "high":
-            score += 0.5
-
-        # Intelligence Layer
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
-        # =========================================
-        # 🔥 CRO EARLY INTELLIGENCE (Adaptive)
-        # =========================================
+        # =========================
+        # 🔥 EARLY TRACK (منفصل)
+        # =========================
+
         early = data.get("early_entry", False)
         acceleration = data.get("acceleration", False)
         strength = data.get("strength", 0)
@@ -220,26 +223,30 @@ class DecisionEngineV3:
         if strength > 0.6:
             early_score += 1
 
-        # فلترة weak early
         if early and strength < 0.4:
             early = False
             early_score = 0
 
-        # تأثير تدريجي
+        # 🔥 تخفيف threshold للـ early فقط
+        early_threshold = threshold
+
         if early_score >= 2:
-            threshold -= 0.7
+            early_threshold -= 1.2
         elif early_score == 1:
-            threshold -= 0.3
+            early_threshold -= 0.5
 
-        # دعم إضافي إذا setup قوي
         if early and data.get("setup") == "real":
-            threshold -= 0.2
+            early_threshold -= 0.3
 
-        # =========================================
+        # =========================
+        # 🎯 FINAL DECISION
+        # =========================
 
-        if score >= threshold:
+        final_threshold = early_threshold if early else threshold
+
+        if score >= final_threshold:
             decision = "ENTER"
-        elif score >= threshold - 2:
+        elif score >= final_threshold - 2:
             decision = "WATCH"
         else:
             decision = "IGNORE"
@@ -251,7 +258,7 @@ class DecisionEngineV3:
             "direction": direction,
             "score": round(score, 2),
             "mode": mode,
-            "size": self.position_size(score),
+            "size": self.position_size(score, data.get("probability", 0)),
             "reasons": [mode.lower()],
             "entry_type": entry_type
         }

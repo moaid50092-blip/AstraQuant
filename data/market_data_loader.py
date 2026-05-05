@@ -10,8 +10,8 @@ class MarketDataLoader:
     def __init__(self):
 
         # 🔐 ضع مفاتيحك هنا (أو استخدم متغيرات بيئة)
-        API_KEY = ""      # مثال: "GUZ3rnXueopAr6FKtrAs0Xv2U1euDZ9OHhMwUMwdPvbih2aCczPdw98WoUkQznGc"
-        API_SECRET = ""   # مثال: "Z5Ll72YpykgRITrhVjm4CTtMVaCgvLPRZLP2RiBNedBFVEMV5SiB3Td62YyvGmF8"
+        API_KEY = ""GUZ3rnXueopAr6FKtrAs0Xv2U1euDZ9OHhMwUMwdPvbih2aCczPdw98WoUkQznGc
+        API_SECRET = ""Z5Ll72YpykgRITrhVjm4CTtMVaCgvLPRZLP2RiBNedBFVEMV5SiB3Td62YyvGmF8
 
         self.client = Client(API_KEY, API_SECRET)
 
@@ -30,7 +30,7 @@ class MarketDataLoader:
             try:
                 df_1m = self._get_binance_data(symbol, "1m", self.default_length)
 
-                # ❌ إذا ما في بيانات → تجاهل العملة (بدون fake)
+                # ❌ إذا ما في بيانات → تجاهل العملة
                 if df_1m is None or df_1m.empty:
                     print(f"❌ No REAL data for {symbol} — skipped")
                     continue
@@ -41,9 +41,12 @@ class MarketDataLoader:
                 print(f"❌ Error fetching {symbol}: {e}")
                 continue
 
-            # 🔥 بناء الفريمات الأعلى من بيانات حقيقية فقط
+            # 🔥 بناء الفريمات الأعلى
             df_5m = self._resample(df_1m, "5min")
             df_15m = self._resample(df_1m, "15min")
+
+            # 🔥 DEBUG مهم جدًا (لحل مشكلة 15m)
+            print(f"{symbol} → 1m={len(df_1m)}, 5m={len(df_5m)}, 15m={len(df_15m)}")
 
             market_data[symbol] = {
                 "1m": df_1m,
@@ -90,14 +93,10 @@ class MarketDataLoader:
             return None
 
     # -------------------------------------------------
-    # ⚠️ Synthetic Data (معطّل افتراضيًا)
+    # ⚠️ Synthetic Data (غير مستخدم)
     # -------------------------------------------------
 
     def _generate_fake_data(self, symbol):
-        """
-        ⚠️ لا يتم استخدامه حاليًا.
-        احتفظنا به فقط للاختبار اليدوي إذا أردت لاحقًا.
-        """
 
         length = self.default_length
 
@@ -132,15 +131,36 @@ class MarketDataLoader:
         return df
 
     # -------------------------------------------------
-    # Resampling
+    # 🔥 FIXED RESAMPLING (احترافي)
     # -------------------------------------------------
 
     def _resample(self, df, timeframe):
 
-        return df.resample(timeframe).agg({
+        if df is None or len(df) == 0:
+            return None
+
+        df = df.copy()
+
+        # 🔥 ترتيب البيانات
+        df = df.sort_index()
+
+        # 🔥 تثبيت التوقيت (حل مشكلة الانحراف)
+        df.index = df.index.floor("1min")
+
+        # 🔥 Resample احترافي
+        resampled = df.resample(
+            timeframe,
+            label="right",
+            closed="right"
+        ).agg({
             "open": "first",
             "high": "max",
             "low": "min",
             "close": "last",
             "volume": "sum"
-        }).dropna()
+        })
+
+        # 🔥 حذف الشموع غير المكتملة فقط
+        resampled = resampled.dropna(subset=["close"])
+
+        return resampled

@@ -10,9 +10,8 @@ class MarketDataLoader:
     def __init__(self):
 
         # 🔐 ضع مفاتيحك هنا (أو استخدم متغيرات بيئة)
-        API_KEY = ""GUZ3rnXueopAr6FKtrAs0Xv2U1euDZ9OHhMwUMwdPvbih2aCczPdw98WoUkQznGc
-        API_SECRET = ""Z5Ll72YpykgRITrhVjm4CTtMVaCgvLPRZLP2RiBNedBFVEMV5SiB3Td62YyvGmF8
-
+        API_KEY = "GUZ3rnXueopAr6FKtrAs0Xv2U1euDZ9OHhMwUMwdPvbih2aCczPdw98WoUkQznGc" 
+        API_SECRET = "Z5Ll72YpykgRITrhVjm4CTtMVaCgvLPRZLP2RiBNedBFVEMV5SiB3Td62YyvGmF8" 
         self.client = Client(API_KEY, API_SECRET)
 
         self.default_length = 200

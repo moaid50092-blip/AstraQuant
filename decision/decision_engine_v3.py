@@ -153,17 +153,16 @@ class DecisionEngineV3:
         return direction
 
     # -------------------------------------------------
-    # 🔥 ENTER CLASSIFIER
-    # -------------------------------------------------
     def classify_entry(self, data, score, threshold):
 
         prob = data.get("probability", 0)
         confidence = data.get("confidence", "MEDIUM")
         early = data.get("early_entry", False)
         acceleration = data.get("acceleration", False)
+        strength = data.get("strength", 0)
 
-        # ⚡ EARLY
-        if early and (acceleration or data.get("strength", 0) > 0.6):
+        # ⚡ EARLY (محسّن)
+        if early and (acceleration or strength > 0.6) and prob > 0.5:
             return "EARLY"
 
         # 🚀 STRONG
@@ -223,17 +222,22 @@ class DecisionEngineV3:
 
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
-        # 🔥 EARLY THRESHOLD
+        # 🔥 EARLY LOGIC (محسّن)
         early = data.get("early_entry", False)
         acceleration = data.get("acceleration", False)
+        strength = data.get("strength", 0)
+
+        # فلتر EARLY الضعيف
+        if early and strength < 0.35:
+            early = False
 
         final_threshold = threshold
 
         if early:
             if acceleration:
-                final_threshold -= 1.0
+                final_threshold -= 1.8
             else:
-                final_threshold -= 0.5
+                final_threshold -= 1.0
 
         # 🎯 DECISION
         if score >= final_threshold:
@@ -243,7 +247,6 @@ class DecisionEngineV3:
         else:
             decision = "IGNORE"
 
-        # 🔥 FIXED ENTRY CLASSIFICATION
         entry_type = self.classify_entry(data, score, final_threshold)
 
         return {

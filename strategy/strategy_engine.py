@@ -34,11 +34,11 @@ class StrategyEngine:
         structure_score = trend_strength
 
         # =========================================
-        # 🔥 BASE SCORE (قديم - بدون تشديد)
+        # 🔥 CRO BASE SCORE (FUSION LAYER)
         # =========================================
         base_score = (
-            momentum * 0.5 +
-            structure_score * 0.2 +
+            momentum * 0.55 +
+            structure_score * 0.15 +
             mtf_score * 0.15 +
             factor_score * 0.15
         )
@@ -49,17 +49,21 @@ class StrategyEngine:
 
         # 🔥 VOLATILITY BOOST
         if volatility > 0.6:
-            base_score += 0.02
+            base_score += 0.03
 
         # -------------------------------------------------
-        # CONSISTENCY (أخف من النسخة الجديدة)
+        pattern_boost = self._detect_liquidity_compression_breakout(df)
+        base_score += pattern_boost
+
+        # -------------------------------------------------
+        # CONSISTENCY
         scores = [structure_score, liquidity_score, factor_score]
         mean_score = sum(scores) / len(scores)
         variance = sum((s - mean_score) ** 2 for s in scores) / len(scores)
         std = variance ** 0.5
 
         consistency = max(0.0, min(1.0, 1 - std))
-        adjustment = (consistency - 0.5) * 0.05  # أخف
+        adjustment = (consistency - 0.5) * 0.1
 
         base_score = base_score * (1 + adjustment)
 
@@ -80,7 +84,6 @@ class StrategyEngine:
         historical_score = self.historical_engine.evaluate(market_features)
 
         # -------------------------------------------------
-        # 🔥 اتجاه مرن (مثل القديم)
         if momentum > 0.52:
             direction = "up"
         elif momentum < 0.48:
@@ -141,9 +144,9 @@ class StrategyEngine:
         last_low = lows.iloc[-1]
 
         if last_high > prev_high or last_low < prev_low:
-            return 0.45
+            return 0.4
 
-        return 0.55
+        return 0.6
 
     # -------------------------------------------------
     def _compute_session_score(self):
@@ -151,7 +154,7 @@ class StrategyEngine:
         hour = datetime.datetime.utcnow().hour
 
         if 7 <= hour <= 16:
-            return 0.6
+            return 0.65
 
         if 0 <= hour <= 6:
             return 0.45
@@ -162,7 +165,7 @@ class StrategyEngine:
     def _compute_context_score(self, volatility):
 
         if volatility > 0.7:
-            return 0.65
+            return 0.7
 
         if volatility < 0.3:
             return 0.4
@@ -184,7 +187,7 @@ class StrategyEngine:
         recent_range = highs.iloc[-10:].max() - lows.iloc[-10:].min()
         prev_range = highs.iloc[-20:-10].max() - lows.iloc[-20:-10].min()
 
-        compression = prev_range > 0 and (recent_range / prev_range) < 0.9  # أخف
+        compression = prev_range > 0 and (recent_range / prev_range) < 0.85
 
         breakout_up = closes.iloc[-1] > highs.iloc[-5:-1].max()
         breakout_down = closes.iloc[-1] < lows.iloc[-5:-1].min()
@@ -199,11 +202,45 @@ class StrategyEngine:
         momentum_strength = abs(momentum - 0.5)
 
         early = (
-            breakout or
-            (compression and acceleration)
-        ) and momentum_strength > 0.04  # أخف
+            (compression and breakout) or
+            (breakout and acceleration)
+        ) and momentum_strength > 0.06
 
         return early, compression, acceleration
+
+    # -------------------------------------------------
+    def _detect_liquidity_compression_breakout(self, df):
+
+        highs = df["high"]
+        lows = df["low"]
+        closes = df["close"]
+
+        prev_high = highs.iloc[-10:-5].max()
+        prev_low = lows.iloc[-10:-5].min()
+
+        last_high = highs.iloc[-6]
+        last_low = lows.iloc[-6]
+
+        sweep = last_high > prev_high or last_low < prev_low
+
+        if not sweep:
+            return 0.0
+
+        compression_range = highs.iloc[-5:].max() - lows.iloc[-5:].min()
+        prior_range = highs.iloc[-15:-5].max() - lows.iloc[-15:-5].min()
+
+        if prior_range == 0:
+            return 0.0
+
+        if (compression_range / prior_range) > 0.5:
+            return 0.0
+
+        breakout = (
+            closes.iloc[-1] > highs.iloc[-5:-1].max() or
+            closes.iloc[-1] < lows.iloc[-5:-1].min()
+        )
+
+        return 0.15 if breakout else 0.0
 
     # -------------------------------------------------
     def _compute_trend_strength(self, df):

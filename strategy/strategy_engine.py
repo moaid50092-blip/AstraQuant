@@ -34,13 +34,13 @@ class StrategyEngine:
         structure_score = trend_strength
 
         # =========================================
-        # 🔥 CRO BASE SCORE (FUSION LAYER)
+        # 🔥 CRO BASE SCORE (محسّن)
         # =========================================
         base_score = (
-            momentum * 0.55 +
+            momentum * 0.6 +
             structure_score * 0.15 +
             mtf_score * 0.15 +
-            factor_score * 0.15
+            factor_score * 0.1
         )
 
         # 🔥 EARLY BOOST
@@ -84,9 +84,10 @@ class StrategyEngine:
         historical_score = self.historical_engine.evaluate(market_features)
 
         # -------------------------------------------------
-        if momentum > 0.52:
+        # 🔥 Direction محسّن (أقل ضوضاء)
+        if momentum > 0.53:
             direction = "up"
-        elif momentum < 0.48:
+        elif momentum < 0.47:
             direction = "down"
         else:
             direction = "neutral"
@@ -143,10 +144,11 @@ class StrategyEngine:
         last_high = highs.iloc[-1]
         last_low = lows.iloc[-1]
 
+        # 🔥 تصحيح منطقي
         if last_high > prev_high or last_low < prev_low:
-            return 0.4
+            return 0.6
 
-        return 0.6
+        return 0.4
 
     # -------------------------------------------------
     def _compute_session_score(self):
@@ -201,10 +203,11 @@ class StrategyEngine:
 
         momentum_strength = abs(momentum - 0.5)
 
+        # 🔥 EARLY محسّن
         early = (
             (compression and breakout) or
             (breakout and acceleration)
-        ) and momentum_strength > 0.06
+        ) and momentum_strength > 0.05
 
         return early, compression, acceleration
 

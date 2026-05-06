@@ -35,7 +35,6 @@ class DecisionEngineV3:
             if strength < 0.40:
                 return "WEAK MOMENTUM"
 
-            # السماح ببداية الهبوط
             if not data.get("breakout") and not early and strength < 0.55:
                 return "WEAK MOMENTUM"
 
@@ -163,15 +162,11 @@ class DecisionEngineV3:
         early = data.get("early_entry", False)
         acceleration = data.get("acceleration", False)
 
-        # =========================================
-        # ⚡ EARLY ENTRY
-        # =========================================
+        # ⚡ EARLY
         if early and (acceleration or data.get("strength", 0) > 0.6):
             return "EARLY"
 
-        # =========================================
-        # 🚀 STRONG ENTRY
-        # =========================================
+        # 🚀 STRONG
         if (
             prob > 0.58
             and confidence == "HIGH"
@@ -179,9 +174,6 @@ class DecisionEngineV3:
         ):
             return "STRONG"
 
-        # =========================================
-        # 🟡 STANDARD
-        # =========================================
         return "STANDARD"
 
     # -------------------------------------------------
@@ -231,9 +223,7 @@ class DecisionEngineV3:
 
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
-        # =========================================
         # 🔥 EARLY THRESHOLD
-        # =========================================
         early = data.get("early_entry", False)
         acceleration = data.get("acceleration", False)
 
@@ -245,9 +235,7 @@ class DecisionEngineV3:
             else:
                 final_threshold -= 0.5
 
-        # =========================================
         # 🎯 DECISION
-        # =========================================
         if score >= final_threshold:
             decision = "ENTER"
         elif score >= final_threshold - 2:
@@ -255,10 +243,8 @@ class DecisionEngineV3:
         else:
             decision = "IGNORE"
 
-        # =========================================
-        # 🔥 ENTRY TYPE (NEW SYSTEM)
-        # =========================================
-        entry_type = self.classify_entry(data, score, threshold)
+        # 🔥 FIXED ENTRY CLASSIFICATION
+        entry_type = self.classify_entry(data, score, final_threshold)
 
         return {
             "decision": decision,

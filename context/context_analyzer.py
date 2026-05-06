@@ -3,92 +3,111 @@ import numpy as np
 
 class ContextAnalyzer:
 
-    def __init__(self, lookback=20):
+    def __init__(self, lookback=30):
         self.lookback = lookback
 
     def analyze(self, df, momentum=None, strength=0.0):
 
-        if df is None or len(df) < 5:
+        if df is None or len(df) < 10:
             return self._empty()
 
-        lookback = min(self.lookback, len(df))
-
-        highs = df["high"].values[-lookback:]
-        lows = df["low"].values[-lookback:]
         closes = df["close"].values
+        highs = df["high"].values
+        lows = df["low"].values
 
         current_price = closes[-1]
 
-        # -----------------------------
-        # Trend
-        # -----------------------------
-        recent_closes = closes[-min(5, len(closes)):]
+        # =========================================
+        # 🔥 TREND (Dominance Logic)
+        # =========================================
 
-        if len(recent_closes) >= 3:
-            if all(x < y for x, y in zip(recent_closes, recent_closes[1:])):
-                trend = "up"
-            elif all(x > y for x, y in zip(recent_closes, recent_closes[1:])):
-                trend = "down"
-            else:
-                trend = "range"
+        def slope(arr):
+            return (arr[-1] - arr[0]) / arr[0] if arr[0] != 0 else 0
+
+        short = closes[-5:]
+        mid = closes[-10:]
+        long = closes[-20:] if len(closes) >= 20 else closes
+
+        s = slope(short)
+        m = slope(mid)
+        l = slope(long)
+
+        avg_slope = (s * 0.5 + m * 0.3 + l * 0.2)
+
+        diffs = np.diff(closes[-10:])
+        up_ratio = np.sum(diffs > 0) / len(diffs)
+        down_ratio = np.sum(diffs < 0) / len(diffs)
+
+        if avg_slope > 0.001 and up_ratio > 0.6:
+            trend = "up"
+        elif avg_slope < -0.001 and down_ratio > 0.6:
+            trend = "down"
         else:
             trend = "range"
 
-        # -----------------------------
-        # Zone
-        # -----------------------------
-        highest = np.max(highs)
-        lowest = np.min(lows)
+        # =========================================
+        # 🔥 ZONE (ديناميكي)
+        # =========================================
 
-        range_size = highest - lowest if highest != lowest else 1
-        position = (current_price - lowest) / range_size
+        lookback = min(self.lookback, len(df))
+        recent_high = np.max(highs[-lookback:])
+        recent_low = np.min(lows[-lookback:])
 
-        if position <= 0.3:
+        range_size = recent_high - recent_low if recent_high != recent_low else 1
+        position = (current_price - recent_low) / range_size
+
+        if position <= 0.25:
             zone = "low"
-        elif position >= 0.7:
+        elif position >= 0.75:
             zone = "high"
         else:
             zone = "middle"
 
-        # -----------------------------
-        # Breakout
-        # -----------------------------
-        if len(highs) >= 2:
-            prev_high = np.max(highs[:-1])
-            prev_low = np.min(lows[:-1])
+        # =========================================
+        # 🔥 BREAKOUT (حقيقي)
+        # =========================================
 
-            breakout_up = current_price > prev_high
-            breakout_down = current_price < prev_low
-        else:
-            breakout_up = breakout_down = False
+        prev_high = np.max(highs[-lookback:-1])
+        prev_low = np.min(lows[-lookback:-1])
 
-        breakout = breakout_up or breakout_down
+        breakout_up = current_price > prev_high
+        breakout_down = current_price < prev_low
 
-        # -----------------------------
-        # Setup
-        # -----------------------------
+        breakout_strength = abs(closes[-1] - closes[-2]) / closes[-2] if len(closes) > 1 else 0
+
+        breakout = False
+        if breakout_up and breakout_strength > 0.002:
+            breakout = True
+        elif breakout_down and breakout_strength > 0.002:
+            breakout = True
+
+        # =========================================
+        # 🔥 SETUP (ذكي + مرن)
+        # =========================================
+
         setup = "unknown"
 
-        if momentum is not None:
+        if momentum:
 
+            # BUY
             if momentum == "up":
-                if strength >= 0.6 and breakout_up:
+                if breakout_up and strength >= 0.55:
                     setup = "real"
-                elif strength >= 0.4:
+                elif strength >= 0.45:
                     setup = "weak"
                 else:
                     setup = "fake"
 
+            # SELL
             elif momentum == "down":
-                if strength >= 0.6 and breakout_down:
+                if breakout_down and strength >= 0.55:
                     setup = "real"
-                elif strength >= 0.4:
+                elif strength >= 0.45:
                     setup = "weak"
                 else:
                     setup = "fake"
 
-            else:
-                setup = "fake"
+        # =========================================
 
         return {
             "trend": trend,

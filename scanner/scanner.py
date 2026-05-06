@@ -66,7 +66,7 @@ class Scanner:
             strategy_count += 1
 
             # -----------------------------------------
-            # 🔥 Probability Engine (التعديل الأهم)
+            # Probability
             # -----------------------------------------
             probability = self.probability_engine.evaluate(strategy_signal)
             probability_count += 1
@@ -82,6 +82,7 @@ class Scanner:
             self.momentum_tracker.update(symbol, hybrid_strength)
             momentum_info = self.momentum_tracker.get_momentum_info(symbol)
 
+            # تثبيت الاتجاه من الاستراتيجية إذا موجود
             if strategy_signal["momentum"] != "neutral":
                 momentum_info["direction"] = strategy_signal["momentum"]
 
@@ -118,13 +119,27 @@ class Scanner:
                 df_15m
             )
 
+            # =========================================
+            # 🔥 SMART EARLY SYSTEM (دمج احترافي)
+            # =========================================
+
+            strategy_early = strategy_signal.get("early_entry", False)
+            strategy_accel = strategy_signal.get("acceleration", False)
+
+            momentum_early = momentum_info.get("early_entry", False)
+            momentum_accel = momentum_info.get("acceleration", False)
+
+            early_entry = strategy_early or momentum_early
+            acceleration = strategy_accel or momentum_accel
+
             # -----------------------------------------
-            # 🔥 Decision (مع تمرير EARLY)
+            # 🔥 Decision
             # -----------------------------------------
             decision = self.decision_engine.evaluate({
                 "probability": probability,
                 "momentum": momentum_info["direction"],
                 "strength": momentum_info["strength"],
+
                 "trend": context["trend"],
                 "zone": context["zone"],
                 "breakout": context["breakout"],
@@ -136,18 +151,18 @@ class Scanner:
                     "15m": mtf["trend_15m"]
                 },
 
-                # 🔥 RANGE
+                # RANGE
                 "range_active": range_info["range_active"],
                 "range_signal": range_info["signal"],
                 "range_confidence": range_info["confidence"],
                 "range_location": range_info["location"],
 
-                # 🔥 CONTEXT
+                # CONTEXT CONFIDENCE
                 "confidence": context_v2["confidence_label"],
 
-                # 🔥 EARLY FIX (هذا كان ناقص عندك)
-                "early_entry": strategy_signal.get("early_entry", False),
-                "acceleration": strategy_signal.get("acceleration", False)
+                # 🔥 SMART EARLY (المهم)
+                "early_entry": early_entry,
+                "acceleration": acceleration
             })
 
             # -----------------------------------------
@@ -183,14 +198,16 @@ class Scanner:
                 "range_signal": range_info["signal"],
                 "range_confidence": range_info["confidence"],
 
-                # 🔥 EARLY OUTPUT
+                # 🔥 ENTRY SYSTEM OUTPUT
                 "entry_type": decision.get("entry_type", "STANDARD"),
+
+                # 🔥 EARLY DETAILS (عرض)
                 "compression": strategy_signal.get("compression", False),
-                "acceleration": strategy_signal.get("acceleration", False)
+                "acceleration": acceleration
             })
 
             # -----------------------------------------
-            # Filter
+            # Filter Opportunities
             # -----------------------------------------
             if decision["decision"] != "ENTER":
                 continue
@@ -217,6 +234,7 @@ class Scanner:
 
                 "range_signal": range_info["signal"],
 
+                # 🔥 ENTRY TYPE النهائي
                 "entry_type": decision.get("entry_type", "STANDARD")
             }
 

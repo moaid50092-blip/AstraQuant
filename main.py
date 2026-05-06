@@ -79,7 +79,7 @@ def run_engine():
                 symbol = s.get("symbol", "N/A")
                 prob = float(s.get("probability", 0))
 
-                mom = s.get("momentum", "neutral")
+                momentum = s.get("momentum", "neutral")
                 strength = float(s.get("strength", 0))
                 history = s.get("history", [])
 
@@ -105,7 +105,6 @@ def run_engine():
                 range_conf = round(s.get("range_confidence", 0), 2)
 
                 entry_type = s.get("entry_type", "STANDARD")
-                is_early = entry_type == "EARLY"
 
                 compression = s.get("compression", False)
                 acceleration = s.get("acceleration", False)
@@ -129,15 +128,23 @@ def run_engine():
                 else:
                     arrow = "→"
 
-                # 🔥 Decision Label
+                # =========================================
+                # 🔥 DECISION LABEL (NEW ENTER SYSTEM)
+                # =========================================
                 if decision == "ENTER":
-                    if is_early:
+
+                    if entry_type == "EARLY":
                         decision_label = f"⚡ EARLY ENTER {direction}"
+
+                    elif entry_type == "STRONG":
+                        decision_label = f"🚀 ENTER STRONG {direction}"
+
                     else:
                         decision_label = f"🚀 ENTER {direction}"
 
                 elif decision == "WATCH":
-                    if is_early:
+
+                    if entry_type == "EARLY":
                         decision_label = "⚡ WATCH (early forming)"
                     else:
                         decision_label = "👀 WATCH"
@@ -173,7 +180,7 @@ def run_engine():
                 print(f"   ↳ setup: {setup} | alignment: {mtf_alignment}")
 
                 # 🔥 EARLY DETAILS
-                if is_early:
+                if entry_type == "EARLY":
                     print(f"   ↳ ⚡ early: compression={compression}, acceleration={acceleration}")
 
                 print(f"   ↳ hist: {history_clean}")

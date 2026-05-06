@@ -30,12 +30,16 @@ class DecisionEngineV3:
         if momentum == "up" and strength < 0.45:
             return "WEAK MOMENTUM"
 
-        # SELL (تم تخفيفه لدعم Trend SELL Layer)
+        # SELL (أذكى)
         if momentum == "down":
             if strength < 0.40:
                 return "WEAK MOMENTUM"
-            # ❌ لم نعد نطلب breakout هنا
 
+            # السماح ببداية الهبوط
+            if not data.get("breakout") and not early and strength < 0.55:
+                return "WEAK MOMENTUM"
+
+        # RANGE
         if data.get("trend") == "range" and not data.get("range_signal"):
             return "EMPTY RANGE"
 
@@ -106,9 +110,9 @@ class DecisionEngineV3:
         prob = data.get("probability", 0)
         confidence = data.get("confidence", "MEDIUM")
 
-        if prob > 0.58:
+        if prob > 0.6:
             score += 1.0
-        elif prob > 0.54:
+        elif prob > 0.55:
             score += 0.5
         elif prob < 0.48:
             threshold += 1.0
@@ -150,6 +154,37 @@ class DecisionEngineV3:
         return direction
 
     # -------------------------------------------------
+    # 🔥 ENTER CLASSIFIER
+    # -------------------------------------------------
+    def classify_entry(self, data, score, threshold):
+
+        prob = data.get("probability", 0)
+        confidence = data.get("confidence", "MEDIUM")
+        early = data.get("early_entry", False)
+        acceleration = data.get("acceleration", False)
+
+        # =========================================
+        # ⚡ EARLY ENTRY
+        # =========================================
+        if early and (acceleration or data.get("strength", 0) > 0.6):
+            return "EARLY"
+
+        # =========================================
+        # 🚀 STRONG ENTRY
+        # =========================================
+        if (
+            prob > 0.58
+            and confidence == "HIGH"
+            and score >= threshold + 1
+        ):
+            return "STRONG"
+
+        # =========================================
+        # 🟡 STANDARD
+        # =========================================
+        return "STANDARD"
+
+    # -------------------------------------------------
     def evaluate(self, data):
 
         gate_reason = self.gate(data)
@@ -166,36 +201,7 @@ class DecisionEngineV3:
 
         mode = self.detect_mode(data)
 
-        # =========================
-        # 🔥 SELL LAYER (احترافي)
-        # =========================
-
-        mtf = data.get("mtf", {})
-
-        trend_sell_ok = (
-            data.get("trend") == "down" and
-            data.get("momentum") == "down" and
-            data.get("strength", 0) >= 0.55 and
-            mtf.get("1m") == "down" and
-            mtf.get("5m") != "up" and
-            data.get("setup") in ["real", "strong"]
-        )
-
-        # =========================
-        # TRACK A → CONFIRMED
-        # =========================
-
-        if trend_sell_ok:
-            score = self.calculate_trend_score(data)
-            threshold = self.transition_threshold - 0.5
-            direction = "down"
-            mode = "TREND"
-
-            # عقوبة إذا 15m مش داعم
-            if mtf.get("15m") != "down":
-                threshold += 0.3
-
-        elif mode == "TREND":
+        if mode == "TREND":
             score = self.calculate_trend_score(data)
             threshold = self.trend_threshold
             direction = data["momentum"]
@@ -223,49 +229,25 @@ class DecisionEngineV3:
 
         direction = self.apply_direction_overlay(data, direction)
 
-        # =========================
-        # 🔥 INTELLIGENCE
-        # =========================
-
         score, threshold = self.intelligence_adjustment(score, threshold, data)
 
-        # =========================
-        # 🔥 EARLY TRACK
-        # =========================
-
+        # =========================================
+        # 🔥 EARLY THRESHOLD
+        # =========================================
         early = data.get("early_entry", False)
         acceleration = data.get("acceleration", False)
-        strength = data.get("strength", 0)
 
-        early_score = 0
+        final_threshold = threshold
 
         if early:
-            early_score += 1
-        if acceleration:
-            early_score += 1
-        if strength > 0.6:
-            early_score += 1
+            if acceleration:
+                final_threshold -= 1.0
+            else:
+                final_threshold -= 0.5
 
-        if early and strength < 0.4:
-            early = False
-            early_score = 0
-
-        early_threshold = threshold
-
-        if early_score >= 2:
-            early_threshold -= 1.2
-        elif early_score == 1:
-            early_threshold -= 0.5
-
-        if early and data.get("setup") == "real":
-            early_threshold -= 0.3
-
-        # =========================
-        # 🎯 FINAL DECISION
-        # =========================
-
-        final_threshold = early_threshold if early else threshold
-
+        # =========================================
+        # 🎯 DECISION
+        # =========================================
         if score >= final_threshold:
             decision = "ENTER"
         elif score >= final_threshold - 2:
@@ -273,7 +255,10 @@ class DecisionEngineV3:
         else:
             decision = "IGNORE"
 
-        entry_type = "EARLY" if early else "STANDARD"
+        # =========================================
+        # 🔥 ENTRY TYPE (NEW SYSTEM)
+        # =========================================
+        entry_type = self.classify_entry(data, score, threshold)
 
         return {
             "decision": decision,

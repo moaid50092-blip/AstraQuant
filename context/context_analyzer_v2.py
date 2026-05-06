@@ -4,6 +4,7 @@ import numpy as np
 class ContextAnalyzerV2:
 
     def __init__(self):
+        # Weights
         self.w_short = 0.4
         self.w_mid = 0.35
         self.w_long = 0.25
@@ -52,115 +53,115 @@ class ContextAnalyzerV2:
         highs = df["high"].values
         lows = df["low"].values
 
+        # -----------------------------
+        # Safety: No clear momentum
+        # -----------------------------
         if momentum_dir not in ["up", "down"]:
             return {
-                "confidence_score": 0.0,
+                "confidence_score": 0.3,   # 🔥 بدل 0.0 (مهم)
                 "confidence_label": "LOW",
+                "short_trend": "range",
+                "mid_trend": "range",
+                "long_trend": "range",
                 "reasons": ["NO MOMENTUM"]
             }
 
-        # =========================
-        # Trends
-        # =========================
+        # -----------------------------
+        # Trend Layers
+        # -----------------------------
         short_trend, short_strength = self._trend_score(closes, 6)
         mid_trend, mid_strength = self._trend_score(closes, 20)
         long_trend, long_strength = self._trend_score(closes, 80)
 
-        trends = [short_trend, mid_trend, long_trend]
-        strengths = [short_strength, mid_strength, long_strength]
-        weights = [self.w_short, self.w_mid, self.w_long]
-
-        score = 0.0
-        reasons = []
-
-        align_count = 0
-
-        for t, s, w, name in zip(trends, strengths, weights, ["SHORT", "MID", "LONG"]):
-
-            if t == momentum_dir:
-                score += w * s
-                align_count += 1
-                reasons.append(f"{name} ALIGN")
-            else:
-                score -= w * 0.6   # 🔥 عقوبة أقوى
-                reasons.append(f"{name} MISALIGN")
-
-        # =========================
-        # 🔥 Global Alignment Boost
-        # =========================
-        if align_count == 3:
-            score += 0.2
-            reasons.append("FULL ALIGNMENT")
-        elif align_count == 2:
-            score += 0.1
-            reasons.append("PARTIAL ALIGNMENT")
-        else:
-            score -= 0.15
-            reasons.append("WEAK ALIGNMENT")
-
-        # =========================
-        # Momentum Boost
-        # =========================
-        if momentum_strength >= 0.65:
-            score += 0.15
-            reasons.append("STRONG MOMENTUM")
-
-        # =========================
-        # Zone Logic (مصَحّح)
-        # =========================
-        zone = base_context.get("zone")
-
-        if momentum_dir == "up" and zone == "high":
-            score -= 0.2
-            reasons.append("BUY AT TOP")
-
-        if momentum_dir == "down" and zone == "low":
-            score -= 0.2
-            reasons.append("SELL AT BOTTOM")
-
-        # =========================
-        # Breakout Intelligence
-        # =========================
-        if base_context.get("breakout"):
-
-            recent_range = float(np.max(highs[-10:]) - np.min(lows[-10:]))
-            avg_vol = float(np.mean(highs - lows))
-
-            if recent_range > avg_vol:
-                score += 0.2
-                reasons.append("STRONG BREAKOUT")
-            else:
-                score += 0.08
-                reasons.append("WEAK BREAKOUT")
-
-        # =========================
-        # Volatility Filter
-        # =========================
+        # -----------------------------
+        # Volatility
+        # -----------------------------
         vol = self._volatility(highs, lows)
         avg_vol = float(np.mean(highs - lows))
 
+        # -----------------------------
+        # Alignment Score
+        # -----------------------------
+        score = 0.5   # 🔥 نبدأ من neutral بدل 0
+        reasons = []
+
+        def score_layer(trend, strength, weight, name):
+            if trend == momentum_dir:
+                return weight * strength, f"{name} ALIGN"
+            else:
+                return -weight * 0.35, f"{name} MISALIGN"  # 🔥 تخفيف العقوبة
+
+        s, r = score_layer(short_trend, short_strength, self.w_short, "SHORT")
+        score += s
+        reasons.append(r)
+
+        s, r = score_layer(mid_trend, mid_strength, self.w_mid, "MID")
+        score += s
+        reasons.append(r)
+
+        s, r = score_layer(long_trend, long_strength, self.w_long, "LONG")
+        score += s
+        reasons.append(r)
+
+        # -----------------------------
+        # Momentum Boost
+        # -----------------------------
+        if momentum_strength >= 0.67:
+            score += 0.12
+            reasons.append("STRONG MOMENTUM")
+
+        # -----------------------------
+        # Zone Logic
+        # -----------------------------
+        zone = base_context.get("zone")
+
+        if momentum_dir == "up" and zone == "high":
+            score -= 0.1
+            reasons.append("HIGH ZONE")
+
+        if momentum_dir == "down" and zone == "low":
+            score -= 0.1
+            reasons.append("LOW ZONE")
+
+        # -----------------------------
+        # Breakout Intelligence
+        # -----------------------------
+        if base_context.get("breakout"):
+            recent_range = float(np.max(highs[-10:]) - np.min(lows[-10:]))
+            if recent_range > avg_vol:
+                score += 0.12
+                reasons.append("STRONG BREAKOUT")
+            else:
+                score += 0.05
+                reasons.append("WEAK BREAKOUT")
+
+        # -----------------------------
+        # Volatility Filter
+        # -----------------------------
         if vol < avg_vol * 0.7:
-            score -= 0.12
+            score -= 0.08
             reasons.append("LOW VOLATILITY")
 
-        # =========================
-        # Normalize ذكي
-        # =========================
-        score = (score + 1) / 2   # تحويل من [-1,1] إلى [0,1]
+        # -----------------------------
+        # Clamp (0 → 1)
+        # -----------------------------
         score = max(0.0, min(1.0, score))
 
-        # =========================
-        # Label محسّن
-        # =========================
-        if score >= 0.72:
+        # -----------------------------
+        # Label
+        # -----------------------------
+        if score >= 0.7:
             label = "HIGH"
-        elif score >= 0.55:
+        elif score >= 0.52:
             label = "MEDIUM"
         else:
             label = "LOW"
 
         return {
-            "confidence_score": round(float(score), 3),
+            "confidence_score": float(round(score, 3)),
             "confidence_label": label,
+            "short_trend": short_trend,
+            "mid_trend": mid_trend,
+            "long_trend": long_trend,
             "reasons": reasons
         }

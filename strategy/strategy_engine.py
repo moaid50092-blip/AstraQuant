@@ -1,5 +1,3 @@
-# strategy/strategy_engine.py
-
 from intelligence.historical_context_engine import HistoricalContextEngine
 from intelligence.volatility_context_engine import VolatilityContextEngine
 import datetime
@@ -34,7 +32,7 @@ class StrategyEngine:
         structure_score = trend_strength
 
         # =========================================
-        # 🔥 CRO BASE SCORE (FUSION LAYER)
+        # 🔥 BASE SCORE
         # =========================================
         base_score = (
             momentum * 0.55 +
@@ -45,7 +43,7 @@ class StrategyEngine:
 
         # 🔥 EARLY BOOST
         if early:
-            base_score += 0.05
+            base_score += 0.04
 
         # 🔥 VOLATILITY BOOST
         if volatility > 0.6:
@@ -67,8 +65,12 @@ class StrategyEngine:
 
         base_score = base_score * (1 + adjustment)
 
-        # 🔥 FINAL CLAMP
+        # 🔥 CLAMP
         base_score = max(0.0, min(1.0, base_score))
+
+        # ❗ فلترة الإشارات الضعيفة جدًا
+        if base_score < 0.42:
+            return None
 
         # -------------------------------------------------
         volatility_score = self.volatility_engine.evaluate(df)
@@ -84,12 +86,13 @@ class StrategyEngine:
         historical_score = self.historical_engine.evaluate(market_features)
 
         # -------------------------------------------------
-        if momentum > 0.52:
+        # 🔥 Direction (محسّن)
+        if momentum > 0.55:
             direction = "up"
-        elif momentum < 0.48:
+        elif momentum < 0.45:
             direction = "down"
         else:
-            direction = "neutral"
+            return None  # ❗ تجاهل الضوضاء
 
         # -------------------------------------------------
         signal = {
@@ -99,7 +102,7 @@ class StrategyEngine:
             "momentum": direction,
             "strength": abs(momentum - 0.5) * 2,
 
-            # 🔥 EARLY (مهم)
+            # 🔥 EARLY
             "early_entry": early,
             "compression": compression,
             "acceleration": acceleration,
@@ -204,7 +207,7 @@ class StrategyEngine:
         early = (
             (compression and breakout) or
             (breakout and acceleration)
-        ) and momentum_strength > 0.06
+        ) and momentum_strength > 0.08
 
         return early, compression, acceleration
 

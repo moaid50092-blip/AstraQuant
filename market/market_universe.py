@@ -7,7 +7,7 @@ class MarketUniverse:
             "BTCUSDT",
             "ETHUSDT",
             "SOLUSDT",
-            "XRBUSDT"
+            "LINKUSDT"
         ]
 
     # -------------------------------------------------

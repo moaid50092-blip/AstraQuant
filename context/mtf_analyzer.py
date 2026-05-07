@@ -7,139 +7,238 @@ class MTFAnalyzer:
         pass
 
     # -------------------------------------------------
-    # 🔥 Robust Trend Engine (CRO-grade)
+    # 🔥 Production-grade Trend Engine
     # -------------------------------------------------
     def _compute_trend(self, closes):
 
-        # 🔥 تنظيف NaN
-        closes = np.array([c for c in closes if c == c], dtype=float)
+        closes = np.array(
+            [c for c in closes if c == c],
+            dtype=float
+        )
 
         n = len(closes)
 
         # -----------------------------------------
-        # 🔥 Fallback إذا البيانات قليلة (ما بنرجع unknown بسهولة)
+        # 🔥 fallback
         # -----------------------------------------
+
         if n < 5:
             return "unknown", 0.0
 
+        # -----------------------------------------
+        # 🔥 low-data mode
+        # -----------------------------------------
+
         if n < 20:
-            # Dominance logic (بدل ما نكون blind)
+
             diffs = np.diff(closes)
+
             up = np.sum(diffs > 0)
             down = np.sum(diffs < 0)
 
             total = up + down
+
             if total == 0:
                 return "range", 0.0
 
             up_ratio = up / total
             down_ratio = down / total
 
-            strength = min(1.0, abs((closes[-1] - closes[0]) / closes[0]) * 8)
+            slope_strength = abs(
+                (closes[-1] - closes[0]) / closes[0]
+            )
 
-            if up_ratio >= 0.65:
+            strength = min(
+                1.0,
+                slope_strength * 10
+            )
+
+            if up_ratio >= 0.62:
                 return "up", float(strength)
-            elif down_ratio >= 0.65:
+
+            elif down_ratio >= 0.62:
                 return "down", float(strength)
-            else:
-                return "range", float(strength)
+
+            return "range", float(strength)
 
         # -----------------------------------------
-        # 🔥 Multi-window (dynamic & stable)
+        # 🔥 multi-window pressure
         # -----------------------------------------
+
         short = closes[-5:]
         mid = closes[-10:]
         long = closes[-20:]
 
         def slope(arr):
+
             if arr[0] == 0:
                 return 0
+
             return (arr[-1] - arr[0]) / arr[0]
 
         s_slope = slope(short)
         m_slope = slope(mid)
         l_slope = slope(long)
 
-        # 🔥 Weighted slope (أكثر استقرار)
-        avg_slope = (s_slope * 0.5 + m_slope * 0.3 + l_slope * 0.2)
-
-        # 🔥 Strength (scaled)
-        strength = min(1.0, abs(avg_slope) * 12)
+        avg_slope = (
+            s_slope * 0.5 +
+            m_slope * 0.3 +
+            l_slope * 0.2
+        )
 
         # -----------------------------------------
-        # 🔥 Consistency (Noise filter)
+        # 🔥 directional consistency
         # -----------------------------------------
+
         diffs = np.diff(closes[-10:])
+
         if len(diffs) == 0:
-            return "range", float(strength)
+            return "range", 0.0
 
-        if avg_slope > 0:
-            consistency = np.sum(diffs > 0) / len(diffs)
+        up_ratio = np.sum(diffs > 0) / len(diffs)
+        down_ratio = np.sum(diffs < 0) / len(diffs)
+
+        # -----------------------------------------
+        # 🔥 adaptive thresholds
+        # -----------------------------------------
+
+        slope_strength = abs(avg_slope)
+
+        if slope_strength < 0.0008:
+            consistency_threshold = 0.68
+
+        elif slope_strength < 0.0015:
+            consistency_threshold = 0.60
+
         else:
-            consistency = np.sum(diffs < 0) / len(diffs)
+            consistency_threshold = 0.55
 
         # -----------------------------------------
-        # 🔥 Decision Logic (محسّن)
+        # 🔥 final strength
         # -----------------------------------------
-        if avg_slope > 0.0008 and consistency > 0.55:
+
+        strength = min(
+            1.0,
+            slope_strength * 14
+        )
+
+        # -----------------------------------------
+        # 🔥 final decision
+        # -----------------------------------------
+
+        if (
+            avg_slope > 0
+            and up_ratio >= consistency_threshold
+        ):
             return "up", float(strength)
 
-        elif avg_slope < -0.0008 and consistency > 0.55:
+        elif (
+            avg_slope < 0
+            and down_ratio >= consistency_threshold
+        ):
             return "down", float(strength)
 
-        else:
-            return "range", float(strength)
+        return "range", float(strength)
 
     # -------------------------------------------------
     def analyze(self, df_1m, df_5m, df_15m):
 
         def process(df):
+
             if df is None or len(df) < 3:
                 return "unknown", 0.0
 
             closes = df["close"].values
+
             return self._compute_trend(closes)
 
         trend_1m, str_1m = process(df_1m)
         trend_5m, str_5m = process(df_5m)
         trend_15m, str_15m = process(df_15m)
 
-        trends = [trend_1m, trend_5m, trend_15m]
-        strengths = [str_1m, str_5m, str_15m]
-
         # -----------------------------------------
-        # 🔥 CRO Alignment Logic (أذكى من قبل)
+        # 🔥 hierarchy
         # -----------------------------------------
 
-        # تجاهل unknown
-        valid_trends = [t for t in trends if t != "unknown"]
+        trends = {
+            "1m": trend_1m,
+            "5m": trend_5m,
+            "15m": trend_15m
+        }
 
-        # إذا الكل unknown → ضعيف
-        if len(valid_trends) == 0:
-            alignment = "weak"
+        strengths = {
+            "1m": str_1m,
+            "5m": str_5m,
+            "15m": str_15m
+        }
+
+        # -----------------------------------------
+        # 🔥 HTF authority
+        # -----------------------------------------
+
+        htf_bias = trend_15m
+
+        if htf_bias == "range":
+            dominant_bias = trend_5m
         else:
-            # الأغلبية
-            dominant = max(set(valid_trends), key=valid_trends.count)
+            dominant_bias = htf_bias
 
-            aligned_count = sum(1 for t in valid_trends if t == dominant)
+        # -----------------------------------------
+        # 🔥 alignment engine
+        # -----------------------------------------
 
-            # 🔥 Weighted strength (15m أهم)
-            weighted_strength = (
-                str_1m * 0.2 +
-                str_5m * 0.3 +
-                str_15m * 0.5
-            )
+        aligned_count = sum(
+            1 for t in trends.values()
+            if t == dominant_bias
+        )
 
-            if aligned_count == 3 and weighted_strength > 0.6:
-                alignment = "strong"
+        weighted_strength = (
+            str_1m * 0.15 +
+            str_5m * 0.35 +
+            str_15m * 0.50
+        )
 
-            elif aligned_count >= 2 and weighted_strength > 0.4:
-                alignment = "medium"
+        # -----------------------------------------
+        # 🔥 alignment classification
+        # -----------------------------------------
 
-            else:
-                alignment = "weak"
+        if (
+            dominant_bias != "range"
+            and aligned_count == 3
+            and weighted_strength > 0.55
+        ):
+            alignment = "strong"
 
-        avg_strength = sum(strengths) / 3
+        elif (
+            dominant_bias != "range"
+            and aligned_count >= 2
+            and weighted_strength > 0.38
+        ):
+            alignment = "medium"
+
+        else:
+            alignment = "weak"
+
+        # -----------------------------------------
+        # 🔥 directional pressure
+        # -----------------------------------------
+
+        directional_pressure = "neutral"
+
+        if trend_5m == trend_15m:
+
+            if trend_15m == "up":
+                directional_pressure = "bullish"
+
+            elif trend_15m == "down":
+                directional_pressure = "bearish"
+
+        # -----------------------------------------
+        avg_strength = (
+            str_1m +
+            str_5m +
+            str_15m
+        ) / 3
 
         return {
             "trend_1m": trend_1m,
@@ -151,5 +250,9 @@ class MTFAnalyzer:
             "strength_15m": round(str_15m, 2),
 
             "alignment": alignment,
-            "avg_strength": round(avg_strength, 2)
+            "avg_strength": round(avg_strength, 2),
+
+            # 🔥 NEW
+            "dominant_bias": dominant_bias,
+            "directional_pressure": directional_pressure
         }

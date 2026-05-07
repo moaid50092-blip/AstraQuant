@@ -3,16 +3,34 @@ import traceback
 
 from data.market_data_loader import MarketDataLoader
 from market.market_universe import MarketUniverse
+
 from scanner.scanner import Scanner
+
 from strategy.strategy_engine import StrategyEngine
 from probability.probability_engine import ProbabilityEngine
 
 
-# 🔥 MARKET STATE ENGINE (عرض فقط)
+# =====================================================
+# 🔥 MARKET STATE ENGINE (Production Grade)
+# =====================================================
+
 def detect_market_state(all_signals):
+
+    if not all_signals:
+        return "UNKNOWN ❓ (no signals)"
 
     trends = [s.get("trend") for s in all_signals]
     breakouts = [s.get("breakout") for s in all_signals]
+
+    strengths = [
+        float(s.get("strength", 0))
+        for s in all_signals
+    ]
+
+    probabilities = [
+        float(s.get("probability", 0.5))
+        for s in all_signals
+    ]
 
     up = trends.count("up")
     down = trends.count("down")
@@ -20,26 +38,319 @@ def detect_market_state(all_signals):
 
     breakout_count = sum(1 for b in breakouts if b)
 
-    total = len(all_signals) if all_signals else 1
+    total = len(all_signals)
 
-    if breakout_count >= total * 0.5 and (up > down):
-        return "TREND 🚀 (aligned trend + breakout activity)"
+    avg_strength = sum(strengths) / total
+    avg_prob = sum(probabilities) / total
 
-    if range_count >= total * 0.6:
+    breakout_ratio = breakout_count / total
+    range_ratio = range_count / total
+
+    # =========================================
+    # 🔥 TREND MARKET
+    # =========================================
+
+    if (
+        breakout_ratio >= 0.4
+        and avg_strength >= 0.58
+        and avg_prob >= 0.55
+    ):
+
+        if up > down:
+            return "TREND 🚀 (bullish expansion)"
+
+        elif down > up:
+            return "TREND 🔻 (bearish expansion)"
+
+    # =========================================
+    # 🔥 RANGE MARKET
+    # =========================================
+
+    if (
+        range_ratio >= 0.6
+        and breakout_ratio < 0.3
+    ):
         return "RANGE 📦 (sideways structure)"
+
+    # =========================================
+    # 🔥 DEAD MARKET
+    # =========================================
+
+    if (
+        avg_strength < 0.35
+        and avg_prob < 0.52
+    ):
+        return "DEAD 💤 (low momentum)"
 
     return "MIXED ❓ (unclear structure)"
 
 
+# =====================================================
+# 🔥 SIGNAL DISPLAY
+# =====================================================
+
+def render_signal(signal):
+
+    symbol = signal.get("symbol", "N/A")
+
+    prob = round(float(signal.get("probability", 0)), 3)
+
+    strength = float(signal.get("strength", 0))
+
+    history = signal.get("history", [])
+
+    trend = signal.get("trend", "unknown")
+    zone = signal.get("zone", "unknown")
+
+    breakout = signal.get("breakout", False)
+
+    setup = signal.get("setup", "unknown")
+
+    decision = signal.get("decision", "N/A")
+
+    direction = signal.get("direction", "")
+
+    reasons = signal.get("reasons", [])
+
+    confidence = signal.get("confidence_label", "LOW")
+
+    confidence_score = round(
+        signal.get("confidence_score", 0),
+        2
+    )
+
+    entry_type = signal.get(
+        "entry_type",
+        "STANDARD"
+    )
+
+    compression = signal.get(
+        "compression",
+        False
+    )
+
+    acceleration = signal.get(
+        "acceleration",
+        False
+    )
+
+    range_active = signal.get(
+        "range_active",
+        False
+    )
+
+    range_signal = signal.get(
+        "range_signal",
+        None
+    )
+
+    range_conf = round(
+        signal.get("range_confidence", 0),
+        2
+    )
+
+    mtf_alignment = signal.get(
+        "mtf_alignment",
+        "unknown"
+    )
+
+    t1 = signal.get("mtf_trend_1m", "unknown")
+    t5 = signal.get("mtf_trend_5m", "unknown")
+    t15 = signal.get("mtf_trend_15m", "unknown")
+
+    # =========================================
+    # 🔥 STRENGTH LABEL
+    # =========================================
+
+    if strength >= 0.75:
+        strength_label = "🔥 STRONG"
+
+    elif strength >= 0.5:
+        strength_label = "🟡 BUILDING"
+
+    else:
+        strength_label = "⚠️ WEAK"
+
+    # =========================================
+    # 🔥 DIRECTION
+    # =========================================
+
+    if direction == "up":
+        arrow = "↑"
+
+    elif direction == "down":
+        arrow = "↓"
+
+    else:
+        arrow = "→"
+
+    # =========================================
+    # 🔥 DECISION LABEL
+    # =========================================
+
+    if decision == "ENTER":
+
+        if entry_type == "EARLY":
+
+            decision_label = (
+                f"⚡ EARLY ENTER {direction}"
+            )
+
+        elif entry_type == "STRONG":
+
+            decision_label = (
+                f"🚀 ENTER STRONG {direction}"
+            )
+
+        else:
+
+            decision_label = (
+                f"🚀 ENTER {direction}"
+            )
+
+    elif decision == "WATCH":
+
+        if entry_type == "EARLY":
+            decision_label = (
+                "⚡ WATCH (early forming)"
+            )
+
+        else:
+            decision_label = "👀 WATCH"
+
+    else:
+
+        decision_label = "❌ IGNORE"
+
+    # =========================================
+    # 🔥 CONFIDENCE LABEL
+    # =========================================
+
+    if confidence == "HIGH":
+
+        conf_label = (
+            f"🧠 HIGH ({confidence_score})"
+        )
+
+    elif confidence == "MEDIUM":
+
+        conf_label = (
+            f"🟡 MED ({confidence_score})"
+        )
+
+    else:
+
+        conf_label = (
+            f"⚠️ LOW ({confidence_score})"
+        )
+
+    # =========================================
+    # 🔥 RANGE LABEL
+    # =========================================
+
+    if range_active:
+
+        if range_signal:
+
+            range_label = (
+                f"📦 RANGE → "
+                f"{range_signal} ({range_conf})"
+            )
+
+        else:
+
+            range_label = "📦 RANGE"
+
+    else:
+
+        range_label = ""
+
+    # =========================================
+    # 🔥 HEADER
+    # =========================================
+
+    print(
+        f"{symbol} → {prob} {arrow} "
+        f"({strength_label}) | "
+        f"{decision_label} | "
+        f"{conf_label} {range_label}"
+    )
+
+    # =========================================
+    # 🔥 DETAILS
+    # =========================================
+
+    print(
+        f"   ↳ trend: {trend} | "
+        f"zone: {zone} | "
+        f"breakout: {breakout}"
+    )
+
+    print(
+        f"   ↳ MTF: "
+        f"1m={t1} | "
+        f"5m={t5} | "
+        f"15m={t15}"
+    )
+
+    print(
+        f"   ↳ setup: {setup} | "
+        f"alignment: {mtf_alignment}"
+    )
+
+    # =========================================
+    # 🔥 EARLY DETAILS
+    # =========================================
+
+    if entry_type == "EARLY":
+
+        print(
+            f"   ↳ ⚡ early: "
+            f"compression={compression}, "
+            f"acceleration={acceleration}"
+        )
+
+    # =========================================
+    # 🔥 HISTORY
+    # =========================================
+
+    history_clean = [
+        round(float(x), 3)
+        for x in history
+    ]
+
+    print(f"   ↳ hist: {history_clean}")
+
+    # =========================================
+    # 🔥 REASONS
+    # =========================================
+
+    if reasons:
+
+        print(
+            f"   ↳ reason: "
+            f"{', '.join(reasons[:3])}"
+        )
+
+
+# =====================================================
+# 🔥 ENGINE LOOP
+# =====================================================
+
 def run_engine():
 
     market_universe = MarketUniverse()
+
     data_loader = MarketDataLoader()
 
     strategy_engine = StrategyEngine()
+
     probability_engine = ProbabilityEngine()
 
-    scanner = Scanner(strategy_engine, probability_engine)
+    scanner = Scanner(
+        strategy_engine,
+        probability_engine
+    )
 
     print("\n🚀 AstraQuant Engine Started...\n")
 
@@ -48,172 +359,217 @@ def run_engine():
     while True:
 
         try:
+
             start_time = time.time()
 
+            # =====================================
+            # 🔥 LOAD DATA
+            # =====================================
+
             symbols = market_universe.get_symbols()
-            market_data = data_loader.load_market_data(symbols)
 
-            scan_result = scanner.run_scan(market_data)
+            market_data = data_loader.load_market_data(
+                symbols
+            )
 
-            opportunities = scan_result.get("opportunities", [])
-            all_signals = scan_result.get("all_signals", [])
-            metrics = scan_result.get("metrics", {})
+            if not market_data:
 
+                print(
+                    "\n⚠️ No market data loaded.\n"
+                )
+
+                time.sleep(5)
+
+                continue
+
+            # =====================================
+            # 🔥 SCAN
+            # =====================================
+
+            scan_result = scanner.run_scan(
+                market_data
+            )
+
+            opportunities = scan_result.get(
+                "opportunities",
+                []
+            )
+
+            all_signals = scan_result.get(
+                "all_signals",
+                []
+            )
+
+            metrics = scan_result.get(
+                "metrics",
+                {}
+            )
+
+            # =====================================
             # 🔥 MARKET STATE
-            market_state = detect_market_state(all_signals)
+            # =====================================
+
+            market_state = detect_market_state(
+                all_signals
+            )
+
+            # =====================================
+            # 🔥 HEADER
+            # =====================================
 
             print("\n==============================")
-            print(f"🕒 Cycle @ {time.strftime('%H:%M:%S')}")
+
+            print(
+                f"🕒 Cycle @ "
+                f"{time.strftime('%H:%M:%S')}"
+            )
+
             print("==============================")
 
-            print(f"🌍 MARKET STATE: {market_state}")
+            print(
+                f"🌍 MARKET STATE: "
+                f"{market_state}"
+            )
 
-            print(f"Total Opportunities: {len(opportunities)}")
-            print(f"Strategy Signals: {metrics.get('strategy_count', 0)}")
-            print(f"Probability Signals: {metrics.get('probability_count', 0)}")
+            print(
+                f"Total Opportunities: "
+                f"{len(opportunities)}"
+            )
+
+            print(
+                f"Strategy Signals: "
+                f"{metrics.get('strategy_count', 0)}"
+            )
+
+            print(
+                f"Probability Signals: "
+                f"{metrics.get('probability_count', 0)}"
+            )
 
             print("\n=== Market View ===")
 
-            for s in all_signals:
+            # =====================================
+            # 🔥 SORT SIGNALS
+            # =====================================
 
-                symbol = s.get("symbol", "N/A")
-                prob = float(s.get("probability", 0))
+            sorted_signals = sorted(
+                all_signals,
+                key=lambda x: (
+                    x.get("decision") == "ENTER",
+                    x.get("probability", 0),
+                    x.get("strength", 0)
+                ),
+                reverse=True
+            )
 
-                momentum = s.get("momentum", "neutral")
-                strength = float(s.get("strength", 0))
-                history = s.get("history", [])
+            for signal in sorted_signals:
 
-                trend = s.get("trend", "unknown")
-                zone = s.get("zone", "unknown")
-                breakout = s.get("breakout", False)
-                setup = s.get("setup", "unknown")
+                render_signal(signal)
 
-                mtf_alignment = s.get("mtf_alignment", "unknown")
-                t1 = s.get("mtf_trend_1m", "unknown")
-                t5 = s.get("mtf_trend_5m", "unknown")
-                t15 = s.get("mtf_trend_15m", "unknown")
-
-                decision = s.get("decision", "N/A")
-                direction = s.get("direction", "")
-                reasons = s.get("reasons", [])
-
-                confidence = s.get("confidence_label", "")
-                confidence_score = round(s.get("confidence_score", 0), 2)
-
-                range_active = s.get("range_active", False)
-                range_signal = s.get("range_signal", None)
-                range_conf = round(s.get("range_confidence", 0), 2)
-
-                entry_type = s.get("entry_type", "STANDARD")
-
-                compression = s.get("compression", False)
-                acceleration = s.get("acceleration", False)
-
-                prob_clean = round(prob, 3)
-                history_clean = [round(x, 3) for x in history]
-
-                # 🔥 Strength Label
-                if strength >= 0.75:
-                    strength_label = "🔥 STRONG"
-                elif strength >= 0.5:
-                    strength_label = "🟡 BUILDING"
-                else:
-                    strength_label = "⚠️ WEAK"
-
-                # 🔥 Direction Arrow
-                if direction == "up":
-                    arrow = "↑"
-                elif direction == "down":
-                    arrow = "↓"
-                else:
-                    arrow = "→"
-
-                # =========================================
-                # 🔥 DECISION LABEL (NEW ENTER SYSTEM)
-                # =========================================
-                if decision == "ENTER":
-
-                    if entry_type == "EARLY":
-                        decision_label = f"⚡ EARLY ENTER {direction}"
-
-                    elif entry_type == "STRONG":
-                        decision_label = f"🚀 ENTER STRONG {direction}"
-
-                    else:
-                        decision_label = f"🚀 ENTER {direction}"
-
-                elif decision == "WATCH":
-
-                    if entry_type == "EARLY":
-                        decision_label = "⚡ WATCH (early forming)"
-                    else:
-                        decision_label = "👀 WATCH"
-
-                else:
-                    decision_label = "❌ IGNORE"
-
-                # 🔥 Confidence Label
-                if confidence == "HIGH":
-                    conf_label = f"🧠 HIGH ({confidence_score})"
-                elif confidence == "MEDIUM":
-                    conf_label = f"🟡 MED ({confidence_score})"
-                else:
-                    conf_label = f"⚠️ LOW ({confidence_score})"
-
-                # 🔥 Range Label
-                if range_active:
-                    if range_signal:
-                        range_label = f"📦 RANGE → {range_signal} ({range_conf})"
-                    else:
-                        range_label = "📦 RANGE"
-                else:
-                    range_label = ""
-
-                # 🔥 HEADER
-                print(
-                    f"{symbol} → {prob_clean} {arrow} "
-                    f"({strength_label}) | {decision_label} | {conf_label} {range_label}"
-                )
-
-                print(f"   ↳ trend: {trend} | zone: {zone} | breakout: {breakout}")
-                print(f"   ↳ MTF: 1m={t1} | 5m={t5} | 15m={t15}")
-                print(f"   ↳ setup: {setup} | alignment: {mtf_alignment}")
-
-                # 🔥 EARLY DETAILS
-                if entry_type == "EARLY":
-                    print(f"   ↳ ⚡ early: compression={compression}, acceleration={acceleration}")
-
-                print(f"   ↳ hist: {history_clean}")
-
-                if reasons:
-                    print(f"   ↳ reason: {', '.join(reasons[:3])}")
+            # =====================================
+            # 🔥 OPPORTUNITIES
+            # =====================================
 
             print("\n=== Opportunities ===")
 
-            for op in opportunities[:10]:
-                print({
-                    "symbol": op.get("symbol", "N/A"),
-                    "probability": round(float(op.get("probability_score", 0)), 3),
-                    "direction": op.get("direction"),
-                    "score": op.get("score"),
-                    "confidence": op.get("confidence"),
-                    "entry_type": op.get("entry_type")
-                })
+            if not opportunities:
+
+                print("No valid entries.")
+
+            else:
+
+                sorted_ops = sorted(
+                    opportunities,
+                    key=lambda x: (
+                        x.get("score", 0),
+                        x.get(
+                            "probability_score",
+                            0
+                        )
+                    ),
+                    reverse=True
+                )
+
+                for op in sorted_ops[:10]:
+
+                    print({
+                        "symbol": op.get(
+                            "symbol",
+                            "N/A"
+                        ),
+
+                        "probability": round(
+                            float(
+                                op.get(
+                                    "probability_score",
+                                    0
+                                )
+                            ),
+                            3
+                        ),
+
+                        "direction": op.get(
+                            "direction"
+                        ),
+
+                        "score": op.get(
+                            "score"
+                        ),
+
+                        "confidence": op.get(
+                            "confidence"
+                        ),
+
+                        "entry_type": op.get(
+                            "entry_type"
+                        )
+                    })
+
+            # =====================================
+            # 🔥 SLEEP CONTROL
+            # =====================================
 
             elapsed = time.time() - start_time
-            sleep_time = max(TARGET_CYCLE_SECONDS - elapsed, 5)
 
-            print(f"\n⏳ Next cycle in {round(sleep_time,1)}s")
+            sleep_time = max(
+                TARGET_CYCLE_SECONDS - elapsed,
+                5
+            )
+
+            print(
+                f"\n⏳ Next cycle in "
+                f"{round(sleep_time, 1)}s"
+            )
+
             print("==============================\n")
 
             time.sleep(sleep_time)
 
+        except KeyboardInterrupt:
+
+            print(
+                "\n🛑 AstraQuant stopped manually.\n"
+            )
+
+            break
+
         except Exception:
+
             print("\n❌ ERROR DETECTED:")
+
             traceback.print_exc()
-            print("\n🔁 Restarting cycle in 5 seconds...\n")
+
+            print(
+                "\n🔁 Restarting cycle "
+                "in 5 seconds...\n"
+            )
+
             time.sleep(5)
 
+
+# =====================================================
+# 🔥 ENTRY
+# =====================================================
 
 if __name__ == "__main__":
     run_engine()

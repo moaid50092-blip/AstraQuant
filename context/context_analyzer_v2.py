@@ -4,164 +4,492 @@ import numpy as np
 class ContextAnalyzerV2:
 
     def __init__(self):
-        # Weights
+
+        # =============================================
+        # 🔥 TREND WEIGHTS
+        # =============================================
+
         self.w_short = 0.4
         self.w_mid = 0.35
         self.w_long = 0.25
 
-    # -------------------------------------------------
+        # =============================================
+        # 🔥 THRESHOLDS
+        # =============================================
+
+        self.align_threshold = 0.6
+
+        self.high_confidence = 0.72
+        self.medium_confidence = 0.54
+
+    # =================================================
+    # 🔥 SAFE TREND SCORE
+    # =================================================
+
     def _trend_score(self, closes, n):
 
         if len(closes) < n:
             return "range", 0.0
 
         seq = closes[-n:]
+
         diffs = np.diff(seq)
 
-        total = len(diffs)
-        if total == 0:
+        if len(diffs) == 0:
             return "range", 0.0
 
         up_moves = np.sum(diffs > 0)
         down_moves = np.sum(diffs < 0)
 
+        total = up_moves + down_moves
+
+        if total == 0:
+            return "range", 0.0
+
         up_ratio = up_moves / total
         down_ratio = down_moves / total
 
-        strength = max(up_ratio, down_ratio)
+        strength = max(
+            up_ratio,
+            down_ratio
+        )
 
-        if up_ratio > 0.6:
-            return "up", float(strength)
-        elif down_ratio > 0.6:
-            return "down", float(strength)
-        else:
+        # =============================================
+        # 🔥 DIRECTION FILTER
+        # =============================================
+
+        directional_move = (
+            seq[-1] - seq[0]
+        ) / seq[0]
+
+        # حماية من noisy oscillation
+        if abs(directional_move) < 0.001:
             return "range", float(strength)
 
-    # -------------------------------------------------
+        if up_ratio >= self.align_threshold:
+            return "up", float(strength)
+
+        if down_ratio >= self.align_threshold:
+            return "down", float(strength)
+
+        return "range", float(strength)
+
+    # =================================================
+    # 🔥 VOLATILITY ENGINE
+    # =================================================
+
     def _volatility(self, highs, lows):
 
-        if len(highs) < 20:
-            return float(np.mean(highs - lows))
-
         ranges = highs - lows
+
+        if len(ranges) == 0:
+            return 0.0
+
+        if len(ranges) < 20:
+            return float(np.mean(ranges))
+
         return float(np.mean(ranges[-20:]))
 
-    # -------------------------------------------------
-    def analyze(self, df, momentum_dir, momentum_strength, base_context):
+    # =================================================
+    # 🔥 TREND AGREEMENT SCORE
+    # =================================================
+
+    def _score_layer(
+        self,
+        trend,
+        strength,
+        weight,
+        momentum_dir,
+        layer_name
+    ):
+
+        # ---------------------------------------------
+        # ALIGN
+        # ---------------------------------------------
+
+        if trend == momentum_dir:
+
+            score = weight * strength
+
+            return score, f"{layer_name} ALIGN"
+
+        # ---------------------------------------------
+        # RANGE
+        # ---------------------------------------------
+
+        if trend == "range":
+
+            # range لا نعاقبه بقوة
+            score = -weight * 0.12
+
+            return score, f"{layer_name} RANGE"
+
+        # ---------------------------------------------
+        # MISALIGN
+        # ---------------------------------------------
+
+        score = -weight * 0.35
+
+        return score, f"{layer_name} MISALIGN"
+
+    # =================================================
+    # 🔥 BREAKOUT INTELLIGENCE
+    # =================================================
+
+    def _breakout_score(
+        self,
+        highs,
+        lows,
+        avg_vol
+    ):
+
+        recent_range = float(
+            np.max(highs[-10:])
+            -
+            np.min(lows[-10:])
+        )
+
+        if recent_range > avg_vol * 1.5:
+            return 0.14, "STRONG BREAKOUT"
+
+        if recent_range > avg_vol:
+            return 0.08, "VALID BREAKOUT"
+
+        return 0.03, "WEAK BREAKOUT"
+
+    # =================================================
+    # 🔥 VOLATILITY FILTER
+    # =================================================
+
+    def _volatility_adjustment(
+        self,
+        vol,
+        avg_vol
+    ):
+
+        if avg_vol <= 0:
+            return 0.0, None
+
+        ratio = vol / avg_vol
+
+        # سوق ميت
+        if ratio < 0.65:
+            return -0.1, "LOW VOLATILITY"
+
+        # سوق نشط
+        if ratio > 1.4:
+            return 0.05, "EXPANSION"
+
+        return 0.0, None
+
+    # =================================================
+    # 🔥 CONFIDENCE LABEL
+    # =================================================
+
+    def _label(self, score):
+
+        if score >= self.high_confidence:
+            return "HIGH"
+
+        if score >= self.medium_confidence:
+            return "MEDIUM"
+
+        return "LOW"
+
+    # =================================================
+    # 🔥 MAIN ANALYSIS ENGINE
+    # =================================================
+
+    def analyze(
+        self,
+        df,
+        momentum_dir,
+        momentum_strength,
+        base_context
+    ):
 
         closes = df["close"].values
         highs = df["high"].values
         lows = df["low"].values
 
-        # -----------------------------
-        # Safety: No clear momentum
-        # -----------------------------
-        if momentum_dir not in ["up", "down"]:
+        # =============================================
+        # 🔥 SAFETY
+        # =============================================
+
+        if len(closes) < 10:
+
             return {
-                "confidence_score": 0.3,   # 🔥 بدل 0.0 (مهم)
+                "confidence_score": 0.3,
                 "confidence_label": "LOW",
+
                 "short_trend": "range",
                 "mid_trend": "range",
                 "long_trend": "range",
+
+                "reasons": ["LOW DATA"]
+            }
+
+        # =============================================
+        # 🔥 NO CLEAR MOMENTUM
+        # =============================================
+
+        if momentum_dir not in ["up", "down"]:
+
+            return {
+                "confidence_score": 0.32,
+                "confidence_label": "LOW",
+
+                "short_trend": "range",
+                "mid_trend": "range",
+                "long_trend": "range",
+
                 "reasons": ["NO MOMENTUM"]
             }
 
-        # -----------------------------
-        # Trend Layers
-        # -----------------------------
-        short_trend, short_strength = self._trend_score(closes, 6)
-        mid_trend, mid_strength = self._trend_score(closes, 20)
-        long_trend, long_strength = self._trend_score(closes, 80)
+        # =============================================
+        # 🔥 TREND LAYERS
+        # =============================================
 
-        # -----------------------------
-        # Volatility
-        # -----------------------------
-        vol = self._volatility(highs, lows)
-        avg_vol = float(np.mean(highs - lows))
+        short_trend, short_strength = (
+            self._trend_score(closes, 6)
+        )
 
-        # -----------------------------
-        # Alignment Score
-        # -----------------------------
-        score = 0.5   # 🔥 نبدأ من neutral بدل 0
+        mid_trend, mid_strength = (
+            self._trend_score(closes, 20)
+        )
+
+        long_trend, long_strength = (
+            self._trend_score(closes, 80)
+        )
+
+        # =============================================
+        # 🔥 VOLATILITY
+        # =============================================
+
+        vol = self._volatility(
+            highs,
+            lows
+        )
+
+        avg_vol = float(
+            np.mean(highs - lows)
+        )
+
+        # =============================================
+        # 🔥 BASE SCORE
+        # =============================================
+
+        score = 0.5
+
         reasons = []
 
-        def score_layer(trend, strength, weight, name):
-            if trend == momentum_dir:
-                return weight * strength, f"{name} ALIGN"
-            else:
-                return -weight * 0.35, f"{name} MISALIGN"  # 🔥 تخفيف العقوبة
+        # =============================================
+        # 🔥 SHORT LAYER
+        # =============================================
 
-        s, r = score_layer(short_trend, short_strength, self.w_short, "SHORT")
+        s, r = self._score_layer(
+            short_trend,
+            short_strength,
+            self.w_short,
+            momentum_dir,
+            "SHORT"
+        )
+
         score += s
         reasons.append(r)
 
-        s, r = score_layer(mid_trend, mid_strength, self.w_mid, "MID")
+        # =============================================
+        # 🔥 MID LAYER
+        # =============================================
+
+        s, r = self._score_layer(
+            mid_trend,
+            mid_strength,
+            self.w_mid,
+            momentum_dir,
+            "MID"
+        )
+
         score += s
         reasons.append(r)
 
-        s, r = score_layer(long_trend, long_strength, self.w_long, "LONG")
+        # =============================================
+        # 🔥 LONG LAYER
+        # =============================================
+
+        s, r = self._score_layer(
+            long_trend,
+            long_strength,
+            self.w_long,
+            momentum_dir,
+            "LONG"
+        )
+
         score += s
         reasons.append(r)
 
-        # -----------------------------
-        # Momentum Boost
-        # -----------------------------
-        if momentum_strength >= 0.67:
-            score += 0.12
-            reasons.append("STRONG MOMENTUM")
+        # =============================================
+        # 🔥 MOMENTUM BOOST
+        # =============================================
 
-        # -----------------------------
-        # Zone Logic
-        # -----------------------------
+        if momentum_strength >= 0.72:
+
+            score += 0.14
+
+            reasons.append(
+                "STRONG MOMENTUM"
+            )
+
+        elif momentum_strength >= 0.6:
+
+            score += 0.08
+
+            reasons.append(
+                "GOOD MOMENTUM"
+            )
+
+        # =============================================
+        # 🔥 ZONE INTELLIGENCE
+        # =============================================
+
         zone = base_context.get("zone")
 
-        if momentum_dir == "up" and zone == "high":
-            score -= 0.1
-            reasons.append("HIGH ZONE")
+        if (
+            momentum_dir == "up"
+            and zone == "high"
+        ):
 
-        if momentum_dir == "down" and zone == "low":
-            score -= 0.1
-            reasons.append("LOW ZONE")
+            score -= 0.12
 
-        # -----------------------------
-        # Breakout Intelligence
-        # -----------------------------
+            reasons.append(
+                "BUYING INTO RESISTANCE"
+            )
+
+        elif (
+            momentum_dir == "down"
+            and zone == "low"
+        ):
+
+            score -= 0.12
+
+            reasons.append(
+                "SELLING INTO SUPPORT"
+            )
+
+        elif (
+            momentum_dir == "up"
+            and zone == "low"
+        ):
+
+            score += 0.05
+
+            reasons.append(
+                "GOOD BUY ZONE"
+            )
+
+        elif (
+            momentum_dir == "down"
+            and zone == "high"
+        ):
+
+            score += 0.05
+
+            reasons.append(
+                "GOOD SELL ZONE"
+            )
+
+        # =============================================
+        # 🔥 BREAKOUT INTELLIGENCE
+        # =============================================
+
         if base_context.get("breakout"):
-            recent_range = float(np.max(highs[-10:]) - np.min(lows[-10:]))
-            if recent_range > avg_vol:
-                score += 0.12
-                reasons.append("STRONG BREAKOUT")
-            else:
-                score += 0.05
-                reasons.append("WEAK BREAKOUT")
 
-        # -----------------------------
-        # Volatility Filter
-        # -----------------------------
-        if vol < avg_vol * 0.7:
-            score -= 0.08
-            reasons.append("LOW VOLATILITY")
+            breakout_score, breakout_reason = (
+                self._breakout_score(
+                    highs,
+                    lows,
+                    avg_vol
+                )
+            )
 
-        # -----------------------------
-        # Clamp (0 → 1)
-        # -----------------------------
-        score = max(0.0, min(1.0, score))
+            score += breakout_score
 
-        # -----------------------------
-        # Label
-        # -----------------------------
-        if score >= 0.7:
-            label = "HIGH"
-        elif score >= 0.52:
-            label = "MEDIUM"
-        else:
-            label = "LOW"
+            reasons.append(
+                breakout_reason
+            )
+
+        # =============================================
+        # 🔥 VOLATILITY FILTER
+        # =============================================
+
+        vol_adj, vol_reason = (
+            self._volatility_adjustment(
+                vol,
+                avg_vol
+            )
+        )
+
+        score += vol_adj
+
+        if vol_reason:
+            reasons.append(vol_reason)
+
+        # =============================================
+        # 🔥 TREND CONSISTENCY
+        # =============================================
+
+        aligned_count = sum([
+            short_trend == momentum_dir,
+            mid_trend == momentum_dir,
+            long_trend == momentum_dir
+        ])
+
+        if aligned_count == 3:
+
+            score += 0.08
+
+            reasons.append(
+                "FULL ALIGNMENT"
+            )
+
+        elif aligned_count == 0:
+
+            score -= 0.12
+
+            reasons.append(
+                "FULL MISALIGNMENT"
+            )
+
+        # =============================================
+        # 🔥 FINAL CLAMP
+        # =============================================
+
+        score = max(
+            0.0,
+            min(1.0, score)
+        )
+
+        # =============================================
+        # 🔥 LABEL
+        # =============================================
+
+        label = self._label(score)
+
+        # =============================================
+        # 🔥 OUTPUT
+        # =============================================
 
         return {
-            "confidence_score": float(round(score, 3)),
+            "confidence_score": round(
+                float(score),
+                3
+            ),
+
             "confidence_label": label,
+
             "short_trend": short_trend,
             "mid_trend": mid_trend,
             "long_trend": long_trend,
+
             "reasons": reasons
         }

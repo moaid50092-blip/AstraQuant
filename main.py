@@ -9,6 +9,18 @@ from scanner.scanner import Scanner
 from strategy.strategy_engine import StrategyEngine
 from probability.probability_engine import ProbabilityEngine
 
+# =====================================================
+# 🔥 TRADE LIFECYCLE
+# =====================================================
+
+from trade_lifecycle.trade_manager import (
+    TradeManager
+)
+
+from trade_lifecycle.lifecycle_renderer import (
+    render_lifecycle_events
+)
+
 
 # =====================================================
 # 🔥 MARKET STATE ENGINE (Production Grade)
@@ -36,7 +48,9 @@ def detect_market_state(all_signals):
     down = trends.count("down")
     range_count = trends.count("range")
 
-    breakout_count = sum(1 for b in breakouts if b)
+    breakout_count = sum(
+        1 for b in breakouts if b
+    )
 
     total = len(all_signals)
 
@@ -57,10 +71,16 @@ def detect_market_state(all_signals):
     ):
 
         if up > down:
-            return "TREND 🚀 (bullish expansion)"
+            return (
+                "TREND 🚀 "
+                "(bullish expansion)"
+            )
 
         elif down > up:
-            return "TREND 🔻 (bearish expansion)"
+            return (
+                "TREND 🔻 "
+                "(bearish expansion)"
+            )
 
     # =========================================
     # 🔥 RANGE MARKET
@@ -70,7 +90,11 @@ def detect_market_state(all_signals):
         range_ratio >= 0.6
         and breakout_ratio < 0.3
     ):
-        return "RANGE 📦 (sideways structure)"
+
+        return (
+            "RANGE 📦 "
+            "(sideways structure)"
+        )
 
     # =========================================
     # 🔥 DEAD MARKET
@@ -80,7 +104,11 @@ def detect_market_state(all_signals):
         avg_strength < 0.35
         and avg_prob < 0.52
     ):
-        return "DEAD 💤 (low momentum)"
+
+        return (
+            "DEAD 💤 "
+            "(low momentum)"
+        )
 
     return "MIXED ❓ (unclear structure)"
 
@@ -93,26 +121,56 @@ def render_signal(signal):
 
     symbol = signal.get("symbol", "N/A")
 
-    prob = round(float(signal.get("probability", 0)), 3)
+    prob = round(
+        float(signal.get("probability", 0)),
+        3
+    )
 
-    strength = float(signal.get("strength", 0))
+    strength = float(
+        signal.get("strength", 0)
+    )
 
     history = signal.get("history", [])
 
-    trend = signal.get("trend", "unknown")
-    zone = signal.get("zone", "unknown")
+    trend = signal.get(
+        "trend",
+        "unknown"
+    )
 
-    breakout = signal.get("breakout", False)
+    zone = signal.get(
+        "zone",
+        "unknown"
+    )
 
-    setup = signal.get("setup", "unknown")
+    breakout = signal.get(
+        "breakout",
+        False
+    )
 
-    decision = signal.get("decision", "N/A")
+    setup = signal.get(
+        "setup",
+        "unknown"
+    )
 
-    direction = signal.get("direction", "")
+    decision = signal.get(
+        "decision",
+        "N/A"
+    )
 
-    reasons = signal.get("reasons", [])
+    direction = signal.get(
+        "direction",
+        ""
+    )
 
-    confidence = signal.get("confidence_label", "LOW")
+    reasons = signal.get(
+        "reasons",
+        []
+    )
+
+    confidence = signal.get(
+        "confidence_label",
+        "LOW"
+    )
 
     confidence_score = round(
         signal.get("confidence_score", 0),
@@ -154,21 +212,35 @@ def render_signal(signal):
         "unknown"
     )
 
-    t1 = signal.get("mtf_trend_1m", "unknown")
-    t5 = signal.get("mtf_trend_5m", "unknown")
-    t15 = signal.get("mtf_trend_15m", "unknown")
+    t1 = signal.get(
+        "mtf_trend_1m",
+        "unknown"
+    )
+
+    t5 = signal.get(
+        "mtf_trend_5m",
+        "unknown"
+    )
+
+    t15 = signal.get(
+        "mtf_trend_15m",
+        "unknown"
+    )
 
     # =========================================
     # 🔥 STRENGTH LABEL
     # =========================================
 
     if strength >= 0.75:
+
         strength_label = "🔥 STRONG"
 
     elif strength >= 0.5:
+
         strength_label = "🟡 BUILDING"
 
     else:
+
         strength_label = "⚠️ WEAK"
 
     # =========================================
@@ -176,12 +248,15 @@ def render_signal(signal):
     # =========================================
 
     if direction == "up":
+
         arrow = "↑"
 
     elif direction == "down":
+
         arrow = "↓"
 
     else:
+
         arrow = "→"
 
     # =========================================
@@ -193,29 +268,35 @@ def render_signal(signal):
         if entry_type == "EARLY":
 
             decision_label = (
-                f"⚡ EARLY ENTER {direction}"
+                f"⚡ EARLY ENTER "
+                f"{direction}"
             )
 
         elif entry_type == "STRONG":
 
             decision_label = (
-                f"🚀 ENTER STRONG {direction}"
+                f"🚀 ENTER STRONG "
+                f"{direction}"
             )
 
         else:
 
             decision_label = (
-                f"🚀 ENTER {direction}"
+                f"🚀 ENTER "
+                f"{direction}"
             )
 
     elif decision == "WATCH":
 
         if entry_type == "EARLY":
+
             decision_label = (
-                "⚡ WATCH (early forming)"
+                "⚡ WATCH "
+                "(early forming)"
             )
 
         else:
+
             decision_label = "👀 WATCH"
 
     else:
@@ -229,19 +310,22 @@ def render_signal(signal):
     if confidence == "HIGH":
 
         conf_label = (
-            f"🧠 HIGH ({confidence_score})"
+            f"🧠 HIGH "
+            f"({confidence_score})"
         )
 
     elif confidence == "MEDIUM":
 
         conf_label = (
-            f"🟡 MED ({confidence_score})"
+            f"🟡 MED "
+            f"({confidence_score})"
         )
 
     else:
 
         conf_label = (
-            f"⚠️ LOW ({confidence_score})"
+            f"⚠️ LOW "
+            f"({confidence_score})"
         )
 
     # =========================================
@@ -254,7 +338,8 @@ def render_signal(signal):
 
             range_label = (
                 f"📦 RANGE → "
-                f"{range_signal} ({range_conf})"
+                f"{range_signal} "
+                f"({range_conf})"
             )
 
         else:
@@ -273,7 +358,8 @@ def render_signal(signal):
         f"{symbol} → {prob} {arrow} "
         f"({strength_label}) | "
         f"{decision_label} | "
-        f"{conf_label} {range_label}"
+        f"{conf_label} "
+        f"{range_label}"
     )
 
     # =========================================
@@ -319,7 +405,10 @@ def render_signal(signal):
         for x in history
     ]
 
-    print(f"   ↳ hist: {history_clean}")
+    print(
+        f"   ↳ hist: "
+        f"{history_clean}"
+    )
 
     # =========================================
     # 🔥 REASONS
@@ -352,7 +441,15 @@ def run_engine():
         probability_engine
     )
 
-    print("\n🚀 AstraQuant Engine Started...\n")
+    # =================================================
+    # 🔥 TRADE MANAGER
+    # =================================================
+
+    trade_manager = TradeManager()
+
+    print(
+        "\n🚀 AstraQuant Engine Started...\n"
+    )
 
     TARGET_CYCLE_SECONDS = 60
 
@@ -366,10 +463,14 @@ def run_engine():
             # 🔥 LOAD DATA
             # =====================================
 
-            symbols = market_universe.get_symbols()
+            symbols = (
+                market_universe.get_symbols()
+            )
 
-            market_data = data_loader.load_market_data(
-                symbols
+            market_data = (
+                data_loader.load_market_data(
+                    symbols
+                )
             )
 
             if not market_data:
@@ -406,25 +507,41 @@ def run_engine():
             )
 
             # =====================================
+            # 🔥 TRADE LIFECYCLE
+            # =====================================
+
+            lifecycle_events = (
+                trade_manager.process_signals(
+                    all_signals
+                )
+            )
+
+            # =====================================
             # 🔥 MARKET STATE
             # =====================================
 
-            market_state = detect_market_state(
-                all_signals
+            market_state = (
+                detect_market_state(
+                    all_signals
+                )
             )
 
             # =====================================
             # 🔥 HEADER
             # =====================================
 
-            print("\n==============================")
+            print(
+                "\n=============================="
+            )
 
             print(
                 f"🕒 Cycle @ "
                 f"{time.strftime('%H:%M:%S')}"
             )
 
-            print("==============================")
+            print(
+                "=============================="
+            )
 
             print(
                 f"🌍 MARKET STATE: "
@@ -455,9 +572,18 @@ def run_engine():
             sorted_signals = sorted(
                 all_signals,
                 key=lambda x: (
-                    x.get("decision") == "ENTER",
-                    x.get("probability", 0),
-                    x.get("strength", 0)
+                    x.get("decision")
+                    == "ENTER",
+
+                    x.get(
+                        "probability",
+                        0
+                    ),
+
+                    x.get(
+                        "strength",
+                        0
+                    )
                 ),
                 reverse=True
             )
@@ -465,6 +591,14 @@ def run_engine():
             for signal in sorted_signals:
 
                 render_signal(signal)
+
+            # =====================================
+            # 🔥 LIFECYCLE EVENTS
+            # =====================================
+
+            render_lifecycle_events(
+                lifecycle_events
+            )
 
             # =====================================
             # 🔥 OPPORTUNITIES
@@ -482,6 +616,7 @@ def run_engine():
                     opportunities,
                     key=lambda x: (
                         x.get("score", 0),
+
                         x.get(
                             "probability_score",
                             0
@@ -493,6 +628,7 @@ def run_engine():
                 for op in sorted_ops[:10]:
 
                     print({
+
                         "symbol": op.get(
                             "symbol",
                             "N/A"
@@ -526,13 +662,23 @@ def run_engine():
                     })
 
             # =====================================
+            # 🔥 CLEANUP
+            # =====================================
+
+            trade_manager.cleanup_closed_trades()
+
+            # =====================================
             # 🔥 SLEEP CONTROL
             # =====================================
 
-            elapsed = time.time() - start_time
+            elapsed = (
+                time.time()
+                - start_time
+            )
 
             sleep_time = max(
-                TARGET_CYCLE_SECONDS - elapsed,
+                TARGET_CYCLE_SECONDS
+                - elapsed,
                 5
             )
 
@@ -541,7 +687,9 @@ def run_engine():
                 f"{round(sleep_time, 1)}s"
             )
 
-            print("==============================\n")
+            print(
+                "==============================\n"
+            )
 
             time.sleep(sleep_time)
 
@@ -572,4 +720,5 @@ def run_engine():
 # =====================================================
 
 if __name__ == "__main__":
+
     run_engine()

@@ -1,479 +1,525 @@
-# trade_lifecycle/trade_object.py
+trade_lifecycle/trade_object.py
 
 import time
 
-
 class TradeObject:
 
+"""
+Pure lifecycle state container.
+
+Responsibilities:
+- Track active trade continuity
+- Persist conviction state
+- Track deterioration progression
+- Handle lifecycle transitions
+- Remain fully isolated from:
+    - scanner logic
+    - market prediction
+    - execution authority
+    - portfolio awareness
+"""
+
+# ==================================================
+# 🔥 INIT
+# ==================================================
+
+def __init__(self, signal):
+
+    self.trade_id = (
+        f"{signal.get('symbol', 'UNKNOWN')}_"
+        f"{int(time.time())}"
+    )
+
+    self.symbol = signal.get("symbol")
+
+    self.direction = signal.get("direction")
+
+    self.entry_type = signal.get(
+        "entry_type",
+        "STANDARD"
+    )
+
+    self.trade_type = self._detect_trade_type(
+        signal
+    )
+
+    # ==========================================
+    # 🔥 INITIAL STATE
+    # ==========================================
+
+    self.state = "ACTIVE"
+
+    self.created_at = time.time()
+
+    self.last_update = time.time()
+
+    self.cycles_alive = 0
+
+    # ==========================================
+    # 🔥 CONTINUATION MATURITY
+    # ==========================================
+
     """
-    Pure lifecycle state container.
+    Minimal continuation-awareness metadata.
 
-    Responsibilities:
-    - Track active trade continuity
-    - Persist conviction state
-    - Track deterioration progression
-    - Handle lifecycle transitions
-    - Remain fully isolated from:
-        - scanner logic
-        - market prediction
-        - execution authority
-        - portfolio awareness
+    Purpose:
+    - Detect whether continuation behavior
+      has structurally matured.
+    - Remain completely execution-neutral.
+    - Avoid lifecycle phase inflation.
     """
 
-    # ==================================================
-    # 🔥 INIT
-    # ==================================================
+    self.continuation_mature = False
 
-    def __init__(self, signal):
+    # ==========================================
+    # 🔥 CONVICTION
+    # ==========================================
 
-        self.trade_id = (
-            f"{signal.get('symbol', 'UNKNOWN')}_"
-            f"{int(time.time())}"
-        )
+    self.initial_probability = float(
+        signal.get("probability", 0.5)
+    )
 
-        self.symbol = signal.get("symbol")
+    self.current_probability = (
+        self.initial_probability
+    )
 
-        self.direction = signal.get("direction")
+    self.highest_probability = (
+        self.initial_probability
+    )
 
-        self.entry_type = signal.get(
-            "entry_type",
-            "STANDARD"
-        )
+    self.lowest_probability = (
+        self.initial_probability
+    )
 
-        self.trade_type = self._detect_trade_type(
-            signal
-        )
+    # ==========================================
+    # 🔥 DETERIORATION
+    # ==========================================
 
-        # ==========================================
-        # 🔥 INITIAL STATE
-        # ==========================================
+    self.deterioration_score = 0.0
 
-        self.state = "ACTIVE"
+    self.warning_count = 0
 
-        self.created_at = time.time()
+    self.recovery_count = 0
 
-        self.last_update = time.time()
+    self.consecutive_weak_cycles = 0
 
-        self.cycles_alive = 0
+    self.consecutive_recovery_cycles = 0
 
-        # ==========================================
-        # 🔥 CONVICTION
-        # ==========================================
+    # ==========================================
+    # 🔥 STRUCTURE
+    # ==========================================
 
-        self.initial_probability = float(
-            signal.get("probability", 0.5)
-        )
+    self.last_trend = signal.get(
+        "trend",
+        "unknown"
+    )
 
-        self.current_probability = (
-            self.initial_probability
-        )
+    self.last_setup = signal.get(
+        "setup",
+        "unknown"
+    )
 
-        self.highest_probability = (
-            self.initial_probability
-        )
+    self.last_confidence = signal.get(
+        "confidence_label",
+        "LOW"
+    )
 
-        self.lowest_probability = (
-            self.initial_probability
-        )
+    self.last_reason = (
+        signal.get("reasons", [])
+    )
 
-        # ==========================================
-        # 🔥 DETERIORATION
-        # ==========================================
+    # ==========================================
+    # 🔥 EXIT STATE
+    # ==========================================
 
-        self.deterioration_score = 0.0
+    self.exit_pending = False
 
-        self.warning_count = 0
+    self.exit_confirmed = False
 
-        self.recovery_count = 0
+    self.exit_reason = None
 
-        self.consecutive_weak_cycles = 0
+    self.exit_cycle = None
 
-        self.consecutive_recovery_cycles = 0
+    # ==========================================
+    # 🔥 SNAPSHOT
+    # ==========================================
 
-        # ==========================================
-        # 🔥 STRUCTURE
-        # ==========================================
+    self.history = []
 
-        self.last_trend = signal.get(
+    self._store_snapshot(signal)
+
+# ==================================================
+# 🔥 TYPE DETECTION
+# ==================================================
+
+def _detect_trade_type(self, signal):
+
+    if signal.get("range_active"):
+        return "RANGE"
+
+    return "TREND"
+
+# ==================================================
+# 🔥 SNAPSHOT STORAGE
+# ==================================================
+
+def _store_snapshot(self, signal):
+
+    snapshot = {
+        "timestamp": time.time(),
+
+        "probability": round(
+            float(signal.get("probability", 0)),
+            3
+        ),
+
+        "strength": round(
+            float(signal.get("strength", 0)),
+            3
+        ),
+
+        "trend": signal.get(
             "trend",
             "unknown"
-        )
+        ),
 
-        self.last_setup = signal.get(
+        "setup": signal.get(
             "setup",
             "unknown"
-        )
+        ),
 
-        self.last_confidence = signal.get(
+        "confidence": signal.get(
             "confidence_label",
             "LOW"
-        )
+        ),
 
-        self.last_reason = (
-            signal.get("reasons", [])
-        )
-
-        # ==========================================
-        # 🔥 EXIT STATE
-        # ==========================================
-
-        self.exit_pending = False
-
-        self.exit_confirmed = False
-
-        self.exit_reason = None
-
-        self.exit_cycle = None
-
-        # ==========================================
-        # 🔥 SNAPSHOT
-        # ==========================================
-
-        self.history = []
-
-        self._store_snapshot(signal)
-
-    # ==================================================
-    # 🔥 TYPE DETECTION
-    # ==================================================
-
-    def _detect_trade_type(self, signal):
-
-        if signal.get("range_active"):
-            return "RANGE"
-
-        return "TREND"
-
-    # ==================================================
-    # 🔥 SNAPSHOT STORAGE
-    # ==================================================
-
-    def _store_snapshot(self, signal):
-
-        snapshot = {
-            "timestamp": time.time(),
-
-            "probability": round(
-                float(signal.get("probability", 0)),
-                3
-            ),
-
-            "strength": round(
-                float(signal.get("strength", 0)),
-                3
-            ),
-
-            "trend": signal.get(
-                "trend",
-                "unknown"
-            ),
-
-            "setup": signal.get(
-                "setup",
-                "unknown"
-            ),
-
-            "confidence": signal.get(
-                "confidence_label",
-                "LOW"
-            ),
-
-            "decision": signal.get(
-                "decision",
-                "IGNORE"
-            )
-        }
-
-        self.history.append(snapshot)
-
-        # prevent uncontrolled growth
-        self.history = self.history[-25:]
-
-    # ==================================================
-    # 🔥 UPDATE STATE
-    # ==================================================
-
-    def update(self, signal):
-
-        self.last_update = time.time()
-
-        self.cycles_alive += 1
-
-        new_probability = float(
-            signal.get("probability", 0.5)
-        )
-
-        previous_probability = (
-            self.current_probability
-        )
-
-        self.current_probability = (
-            new_probability
-        )
-
-        self.highest_probability = max(
-            self.highest_probability,
-            new_probability
-        )
-
-        self.lowest_probability = min(
-            self.lowest_probability,
-            new_probability
-        )
-
-        # ==========================================
-        # 🔥 DETERIORATION TRACKING
-        # ==========================================
-
-        delta = (
-            new_probability
-            - previous_probability
-        )
-
-        if delta < -0.015:
-
-            self.consecutive_weak_cycles += 1
-
-            self.consecutive_recovery_cycles = 0
-
-            self.warning_count += 1
-
-            self.deterioration_score += abs(delta)
-
-        elif delta > 0.015:
-
-            self.consecutive_recovery_cycles += 1
-
-            self.consecutive_weak_cycles = 0
-
-            self.recovery_count += 1
-
-            self.deterioration_score *= 0.8
-
-        else:
-
-            self.deterioration_score *= 0.97
-
-        # ==========================================
-        # 🔥 STRUCTURE UPDATE
-        # ==========================================
-
-        self.last_trend = signal.get(
-            "trend",
-            self.last_trend
-        )
-
-        self.last_setup = signal.get(
-            "setup",
-            self.last_setup
-        )
-
-        self.last_confidence = signal.get(
-            "confidence_label",
-            self.last_confidence
-        )
-
-        self.last_reason = signal.get(
-            "reasons",
-            self.last_reason
-        )
-
-        # ==========================================
-        # 🔥 EXIT WATCH
-        # ==========================================
-
-        self._evaluate_exit_watch(signal)
-
-        # ==========================================
-        # 🔥 STORE SNAPSHOT
-        # ==========================================
-
-        self._store_snapshot(signal)
-
-    # ==================================================
-    # 🔥 EXIT WATCH
-    # ==================================================
-
-    def _evaluate_exit_watch(self, signal):
-
-        decision = signal.get(
+        "decision": signal.get(
             "decision",
             "IGNORE"
         )
+    }
 
-        setup = signal.get(
-            "setup",
-            "unknown"
+    self.history.append(snapshot)
+
+    # prevent uncontrolled growth
+    self.history = self.history[-25:]
+
+# ==================================================
+# 🔥 UPDATE STATE
+# ==================================================
+
+def update(self, signal):
+
+    self.last_update = time.time()
+
+    self.cycles_alive += 1
+
+    new_probability = float(
+        signal.get("probability", 0.5)
+    )
+
+    previous_probability = (
+        self.current_probability
+    )
+
+    self.current_probability = (
+        new_probability
+    )
+
+    self.highest_probability = max(
+        self.highest_probability,
+        new_probability
+    )
+
+    self.lowest_probability = min(
+        self.lowest_probability,
+        new_probability
+    )
+
+    # ==========================================
+    # 🔥 DETERIORATION TRACKING
+    # ==========================================
+
+    delta = (
+        new_probability
+        - previous_probability
+    )
+
+    if delta < -0.015:
+
+        self.consecutive_weak_cycles += 1
+
+        self.consecutive_recovery_cycles = 0
+
+        self.warning_count += 1
+
+        self.deterioration_score += abs(delta)
+
+    elif delta > 0.015:
+
+        self.consecutive_recovery_cycles += 1
+
+        self.consecutive_weak_cycles = 0
+
+        self.recovery_count += 1
+
+        self.deterioration_score *= 0.8
+
+    else:
+
+        self.deterioration_score *= 0.97
+
+    # ==========================================
+    # 🔥 CONTINUATION MATURITY
+    # ==========================================
+
+    """
+    Structural continuation maturity detection.
+
+    Important:
+    - Not profit-aware
+    - Not execution-aware
+    - Not adaptive management
+    - Pure continuation persistence interpretation
+    """
+
+    if (
+        self.trade_type == "TREND"
+        and self.cycles_alive >= 4
+        and self.consecutive_recovery_cycles >= 2
+        and self.current_probability
+            >= self.initial_probability
+    ):
+
+        self.continuation_mature = True
+
+    # ==========================================
+    # 🔥 STRUCTURE UPDATE
+    # ==========================================
+
+    self.last_trend = signal.get(
+        "trend",
+        self.last_trend
+    )
+
+    self.last_setup = signal.get(
+        "setup",
+        self.last_setup
+    )
+
+    self.last_confidence = signal.get(
+        "confidence_label",
+        self.last_confidence
+    )
+
+    self.last_reason = signal.get(
+        "reasons",
+        self.last_reason
+    )
+
+    # ==========================================
+    # 🔥 EXIT WATCH
+    # ==========================================
+
+    self._evaluate_exit_watch(signal)
+
+    # ==========================================
+    # 🔥 STORE SNAPSHOT
+    # ==========================================
+
+    self._store_snapshot(signal)
+
+# ==================================================
+# 🔥 EXIT WATCH
+# ==================================================
+
+def _evaluate_exit_watch(self, signal):
+
+    decision = signal.get(
+        "decision",
+        "IGNORE"
+    )
+
+    setup = signal.get(
+        "setup",
+        "unknown"
+    )
+
+    confidence = signal.get(
+        "confidence_label",
+        "LOW"
+    )
+
+    # ==========================================
+    # 🔥 EXIT WARNING
+    # ==========================================
+
+    if (
+        decision == "IGNORE"
+        or setup == "fake"
+        or confidence == "LOW"
+    ):
+
+        self.exit_pending = True
+
+    # ==========================================
+    # 🔥 RECOVERY
+    # ==========================================
+
+    else:
+
+        self.exit_pending = False
+
+    # ==========================================
+    # 🔥 EXIT CONFIRMATION
+    # ==========================================
+
+    if (
+        self.exit_pending
+        and self.consecutive_weak_cycles >= 2
+    ):
+
+        self.exit_confirmed = True
+
+        self.state = "EXIT"
+
+        self.exit_cycle = self.cycles_alive
+
+        self.exit_reason = (
+            "deterioration_confirmed"
         )
 
-        confidence = signal.get(
-            "confidence_label",
-            "LOW"
-        )
+# ==================================================
+# 🔥 STATUS
+# ==================================================
 
-        # ==========================================
-        # 🔥 EXIT WARNING
-        # ==========================================
+def is_active(self):
 
-        if (
-            decision == "IGNORE"
-            or setup == "fake"
-            or confidence == "LOW"
-        ):
+    return (
+        self.state == "ACTIVE"
+        and not self.exit_confirmed
+    )
 
-            self.exit_pending = True
+# ==================================================
+# 🔥 EXPORT
+# ==================================================
 
-        # ==========================================
-        # 🔥 RECOVERY
-        # ==========================================
+def export_state(self):
 
-        else:
+    return {
 
-            self.exit_pending = False
+        # ======================================
+        # 🔥 CORE
+        # ======================================
 
-        # ==========================================
-        # 🔥 EXIT CONFIRMATION
-        # ==========================================
+        "trade_id": self.trade_id,
 
-        if (
-            self.exit_pending
-            and self.consecutive_weak_cycles >= 2
-        ):
+        "symbol": self.symbol,
 
-            self.exit_confirmed = True
+        "direction": self.direction,
 
-            self.state = "EXIT"
+        "trade_type": self.trade_type,
 
-            self.exit_cycle = self.cycles_alive
+        "entry_type": self.entry_type,
 
-            self.exit_reason = (
-                "deterioration_confirmed"
-            )
+        "state": self.state,
 
-    # ==================================================
-    # 🔥 STATUS
-    # ==================================================
+        # ======================================
+        # 🔥 CONTINUATION
+        # ======================================
 
-    def is_active(self):
+        "continuation_mature":
+            self.continuation_mature,
 
-        return (
-            self.state == "ACTIVE"
-            and not self.exit_confirmed
-        )
+        # ======================================
+        # 🔥 CONVICTION
+        # ======================================
 
-    # ==================================================
-    # 🔥 EXPORT
-    # ==================================================
+        "initial_probability":
+            round(
+                self.initial_probability,
+                3
+            ),
 
-    def export_state(self):
+        "current_probability":
+            round(
+                self.current_probability,
+                3
+            ),
 
-        return {
+        "highest_probability":
+            round(
+                self.highest_probability,
+                3
+            ),
 
-            # ======================================
-            # 🔥 CORE
-            # ======================================
+        "lowest_probability":
+            round(
+                self.lowest_probability,
+                3
+            ),
 
-            "trade_id": self.trade_id,
+        # ======================================
+        # 🔥 LIFECYCLE
+        # ======================================
 
-            "symbol": self.symbol,
+        "cycles_alive":
+            self.cycles_alive,
 
-            "direction": self.direction,
+        "deterioration_score":
+            round(
+                self.deterioration_score,
+                3
+            ),
 
-            "trade_type": self.trade_type,
+        "warning_count":
+            self.warning_count,
 
-            "entry_type": self.entry_type,
+        "recovery_count":
+            self.recovery_count,
 
-            "state": self.state,
+        "weak_cycles":
+            self.consecutive_weak_cycles,
 
-            # ======================================
-            # 🔥 CONVICTION
-            # ======================================
+        "recovery_cycles":
+            self.consecutive_recovery_cycles,
 
-            "initial_probability":
-                round(
-                    self.initial_probability,
-                    3
-                ),
+        # ======================================
+        # 🔥 STRUCTURE
+        # ======================================
 
-            "current_probability":
-                round(
-                    self.current_probability,
-                    3
-                ),
+        "trend":
+            self.last_trend,
 
-            "highest_probability":
-                round(
-                    self.highest_probability,
-                    3
-                ),
+        "setup":
+            self.last_setup,
 
-            "lowest_probability":
-                round(
-                    self.lowest_probability,
-                    3
-                ),
+        "confidence":
+            self.last_confidence,
 
-            # ======================================
-            # 🔥 LIFECYCLE
-            # ======================================
+        "reasons":
+            self.last_reason,
 
-            "cycles_alive":
-                self.cycles_alive,
+        # ======================================
+        # 🔥 EXIT
+        # ======================================
 
-            "deterioration_score":
-                round(
-                    self.deterioration_score,
-                    3
-                ),
+        "exit_pending":
+            self.exit_pending,
 
-            "warning_count":
-                self.warning_count,
+        "exit_confirmed":
+            self.exit_confirmed,
 
-            "recovery_count":
-                self.recovery_count,
+        "exit_reason":
+            self.exit_reason,
 
-            "weak_cycles":
-                self.consecutive_weak_cycles,
+        # ======================================
+        # 🔥 TIMING
+        # ======================================
 
-            "recovery_cycles":
-                self.consecutive_recovery_cycles,
+        "created_at":
+            self.created_at,
 
-            # ======================================
-            # 🔥 STRUCTURE
-            # ======================================
-
-            "trend":
-                self.last_trend,
-
-            "setup":
-                self.last_setup,
-
-            "confidence":
-                self.last_confidence,
-
-            "reasons":
-                self.last_reason,
-
-            # ======================================
-            # 🔥 EXIT
-            # ======================================
-
-            "exit_pending":
-                self.exit_pending,
-
-            "exit_confirmed":
-                self.exit_confirmed,
-
-            "exit_reason":
-                self.exit_reason,
-
-            # ======================================
-            # 🔥 TIMING
-            # ======================================
-
-            "created_at":
-                self.created_at,
-
-            "last_update":
-                self.last_update
-        }
+        "last_update":
+            self.last_update
+    }

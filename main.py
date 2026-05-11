@@ -21,6 +21,14 @@ from trade_lifecycle.lifecycle_renderer import (
     render_lifecycle_events
 )
 
+# =====================================================
+# 🔥 TACTICAL RANGE INTERPRETATION
+# =====================================================
+
+from interpretation.tactical_range_interpreter import (
+    TacticalRangeInterpreter
+)
+
 
 # =====================================================
 # 🔥 MARKET STATE ENGINE (Production Grade)
@@ -117,7 +125,10 @@ def detect_market_state(all_signals):
 # 🔥 SIGNAL DISPLAY
 # =====================================================
 
-def render_signal(signal):
+def render_signal(
+    signal,
+    range_interpreter=None
+):
 
     symbol = signal.get("symbol", "N/A")
 
@@ -226,6 +237,48 @@ def render_signal(signal):
         "mtf_trend_15m",
         "unknown"
     )
+
+    # =========================================
+    # 🔥 RANGE SEMANTICS
+    # =========================================
+
+    range_semantics = {}
+
+    if (
+        range_active
+        and range_interpreter is not None
+    ):
+
+        range_semantics = (
+            range_interpreter.interpret(
+                {
+                    "range_active":
+                        range_active,
+
+                    "signal":
+                        range_signal,
+
+                    "confidence":
+                        range_conf,
+
+                    "location":
+                        signal.get(
+                            "range_location"
+                        ),
+
+                    "rejection":
+                        signal.get(
+                            "range_rejection"
+                        ),
+
+                    "fake_breakout":
+                        signal.get(
+                            "range_fake_breakout"
+                        )
+                },
+                momentum_dir=direction
+            )
+        )
 
     # =========================================
     # 🔥 STRENGTH LABEL
@@ -385,6 +438,27 @@ def render_signal(signal):
     )
 
     # =========================================
+    # 🔥 RANGE SEMANTIC RENDER
+    # =========================================
+
+    if range_semantics:
+
+        print(
+            f"   ↳ rotation: "
+            f"{range_semantics.get('rotation_stability')}"
+        )
+
+        print(
+            f"   ↳ context: "
+            f"{range_semantics.get('context_state')}"
+        )
+
+        print(
+            f"   ↳ behavior: "
+            f"{range_semantics.get('rotational_behavior')}"
+        )
+
+    # =========================================
     # 🔥 EARLY DETAILS
     # =========================================
 
@@ -446,6 +520,14 @@ def run_engine():
     # =================================================
 
     trade_manager = TradeManager()
+
+    # =================================================
+    # 🔥 RANGE INTERPRETER
+    # =================================================
+
+    range_interpreter = (
+        TacticalRangeInterpreter()
+    )
 
     print(
         "\n🚀 AstraQuant Engine Started...\n"
@@ -590,7 +672,10 @@ def run_engine():
 
             for signal in sorted_signals:
 
-                render_signal(signal)
+                render_signal(
+                    signal,
+                    range_interpreter
+                )
 
             # =====================================
             # 🔥 LIFECYCLE EVENTS

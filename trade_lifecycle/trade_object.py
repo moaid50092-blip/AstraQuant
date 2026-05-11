@@ -2,6 +2,10 @@
 
 import time
 
+from observability.trace_sink import (
+    append_trace
+)
+
 
 class TradeObject:
 
@@ -137,7 +141,25 @@ class TradeObject:
 
         self.history = []
 
+        # ==========================================
+        # 🔥 BEHAVIORAL OBSERVABILITY
+        # ==========================================
+
+        """
+        Passive semantic trace storage.
+
+        Important:
+        - Read-only
+        - No execution authority
+        - No lifecycle mutation
+        - No adaptive behavior
+        """
+
+        self.behavioral_trace = []
+
         self._store_snapshot(signal)
+
+        self._store_behavioral_trace()
 
     # ==================================================
     # 🔥 TYPE DETECTION
@@ -193,6 +215,87 @@ class TradeObject:
         self.history.append(snapshot)
 
         self.history = self.history[-25:]
+
+    # ==================================================
+    # 🔥 BEHAVIORAL TRACE
+    # ==================================================
+
+    def _store_behavioral_trace(self):
+
+        current_timestamp = time.time()
+
+        trace = {
+
+            "timestamp":
+                current_timestamp,
+
+            "datetime":
+                time.strftime(
+                    "%Y-%m-%d %H:%M:%S",
+                    time.gmtime(current_timestamp)
+                ),
+
+            "trade_id":
+                self.trade_id,
+
+            "symbol":
+                self.symbol,
+
+            "direction":
+                self.direction,
+
+            "state":
+                self.state,
+
+            "trade_type":
+                self.trade_type,
+
+            "cycles_alive":
+                self.cycles_alive,
+
+            "continuation_mature":
+                self.continuation_mature,
+
+            "current_probability":
+                round(
+                    self.current_probability,
+                    3
+                ),
+
+            "deterioration_score":
+                round(
+                    self.deterioration_score,
+                    3
+                ),
+
+            "weak_cycles":
+                self.consecutive_weak_cycles,
+
+            "recovery_cycles":
+                self.consecutive_recovery_cycles,
+
+            "exit_pending":
+                self.exit_pending,
+
+            "exit_confirmed":
+                self.exit_confirmed,
+
+            "exit_reason":
+                self.exit_reason
+        }
+
+        self.behavioral_trace.append(trace)
+
+        # ==========================================
+        # 🔥 PASSIVE TRACE PERSISTENCE
+        # ==========================================
+
+        append_trace(trace)
+
+        # prevent uncontrolled growth
+        self.behavioral_trace = (
+            self.behavioral_trace[-50:]
+        )
 
     # ==================================================
     # 🔥 UPDATE STATE
@@ -308,6 +411,12 @@ class TradeObject:
         # ==========================================
 
         self._store_snapshot(signal)
+
+        # ==========================================
+        # 🔥 STORE OBSERVABILITY TRACE
+        # ==========================================
+
+        self._store_behavioral_trace()
 
     # ==================================================
     # 🔥 EXIT WATCH

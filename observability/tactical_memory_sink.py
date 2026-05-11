@@ -51,15 +51,7 @@ class TacticalMemorySink:
     # 🔥 STORE EVENT
     # ==================================================
 
-    def store_event(
-        self,
-        symbol,
-        signal,
-        range_confidence,
-        rotation_stability,
-        context_state,
-        rotational_behavior
-    ):
+    def store_event(self, event):
 
         """
         Append semantic tactical observation.
@@ -71,16 +63,14 @@ class TacticalMemorySink:
         - No execution influence
         """
 
-        timestamp = time_now()
-
-        event = {
+        normalized_event = {
 
             # ======================================
             # 🔥 TEMPORAL
             # ======================================
 
             "timestamp":
-                timestamp,
+                time_now(),
 
             "datetime":
                 utc_datetime(),
@@ -90,14 +80,19 @@ class TacticalMemorySink:
             # ======================================
 
             "symbol":
-                symbol,
+                event.get("symbol"),
 
             "signal":
-                signal,
+                event.get("signal"),
 
             "range_confidence":
                 round(
-                    float(range_confidence),
+                    float(
+                        event.get(
+                            "confidence",
+                            0
+                        )
+                    ),
                     3
                 ),
 
@@ -106,13 +101,19 @@ class TacticalMemorySink:
             # ======================================
 
             "rotation_stability":
-                rotation_stability,
+                event.get(
+                    "rotation_stability"
+                ),
 
             "context_state":
-                context_state,
+                event.get(
+                    "context_state"
+                ),
 
             "rotational_behavior":
-                rotational_behavior
+                event.get(
+                    "rotational_behavior"
+                )
         }
 
         file_path = (
@@ -128,7 +129,7 @@ class TacticalMemorySink:
 
             file.write(
                 json.dumps(
-                    event,
+                    normalized_event,
                     ensure_ascii=False
                 )
                 + "\n"

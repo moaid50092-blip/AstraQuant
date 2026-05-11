@@ -29,6 +29,14 @@ from interpretation.tactical_range_interpreter import (
     TacticalRangeInterpreter
 )
 
+# =====================================================
+# 🔥 TACTICAL MEMORY SINK
+# =====================================================
+
+from observability.tactical_memory_sink import (
+    TacticalMemorySink
+)
+
 
 # =====================================================
 # 🔥 MARKET STATE ENGINE (Production Grade)
@@ -495,6 +503,8 @@ def render_signal(
             f"{', '.join(reasons[:3])}"
         )
 
+    return range_semantics
+
 
 # =====================================================
 # 🔥 ENGINE LOOP
@@ -528,6 +538,12 @@ def run_engine():
     range_interpreter = (
         TacticalRangeInterpreter()
     )
+
+    # =================================================
+    # 🔥 TACTICAL MEMORY
+    # =================================================
+
+    tactical_memory = TacticalMemorySink()
 
     print(
         "\n🚀 AstraQuant Engine Started...\n"
@@ -672,10 +688,60 @@ def run_engine():
 
             for signal in sorted_signals:
 
-                render_signal(
+                range_semantics = render_signal(
                     signal,
                     range_interpreter
                 )
+
+                # =================================
+                # 🔥 TACTICAL MEMORY EVENT
+                # =================================
+
+                if (
+                    signal.get("range_active")
+                    and signal.get("range_signal")
+                    and range_semantics
+                ):
+
+                    tactical_memory.store_event(
+                        {
+                            "symbol":
+                                signal.get(
+                                    "symbol"
+                                ),
+
+                            "signal":
+                                signal.get(
+                                    "range_signal"
+                                ),
+
+                            "confidence":
+                                round(
+                                    float(
+                                        signal.get(
+                                            "range_confidence",
+                                            0
+                                        )
+                                    ),
+                                    2
+                                ),
+
+                            "rotation_stability":
+                                range_semantics.get(
+                                    "rotation_stability"
+                                ),
+
+                            "context_state":
+                                range_semantics.get(
+                                    "context_state"
+                                ),
+
+                            "rotational_behavior":
+                                range_semantics.get(
+                                    "rotational_behavior"
+                                )
+                        }
+                    )
 
             # =====================================
             # 🔥 LIFECYCLE EVENTS

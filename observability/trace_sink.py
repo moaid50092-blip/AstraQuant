@@ -42,6 +42,25 @@ def append_trace(trace):
             filename
         )
 
+        # -----------------------------------
+        # DEBUG VISIBILITY
+        # -----------------------------------
+
+        print(
+            "\n[TRACE FILE]",
+            os.path.abspath(filepath)
+        )
+
+        print(
+            "[TRACE APPEND]",
+            json.dumps(
+                trace,
+                ensure_ascii=False
+            )
+        )
+
+        # -----------------------------------
+
         with open(
             filepath,
             "a",
@@ -49,12 +68,21 @@ def append_trace(trace):
         ) as trace_file:
 
             trace_file.write(
-                json.dumps(trace)
+                json.dumps(
+                    trace,
+                    ensure_ascii=False
+                )
                 + "\n"
             )
 
-    except Exception:
+    except Exception as e:
 
         # observability must NEVER
         # affect runtime behavior
+
+        print(
+            "[TRACE ERROR]",
+            str(e)
+        )
+
         pass

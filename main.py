@@ -87,12 +87,14 @@ def detect_market_state(all_signals):
     ):
 
         if up > down:
+
             return (
                 "TREND 🚀 "
                 "(bullish expansion)"
             )
 
         elif down > up:
+
             return (
                 "TREND 🔻 "
                 "(bearish expansion)"
@@ -138,7 +140,10 @@ def render_signal(
     range_interpreter=None
 ):
 
-    symbol = signal.get("symbol", "N/A")
+    symbol = signal.get(
+        "symbol",
+        "N/A"
+    )
 
     prob = round(
         float(signal.get("probability", 0)),
@@ -149,7 +154,10 @@ def render_signal(
         signal.get("strength", 0)
     )
 
-    history = signal.get("history", [])
+    history = signal.get(
+        "history",
+        []
+    )
 
     trend = signal.get(
         "trend",
@@ -192,7 +200,10 @@ def render_signal(
     )
 
     confidence_score = round(
-        signal.get("confidence_score", 0),
+        signal.get(
+            "confidence_score",
+            0
+        ),
         2
     )
 
@@ -222,7 +233,10 @@ def render_signal(
     )
 
     range_conf = round(
-        signal.get("range_confidence", 0),
+        signal.get(
+            "range_confidence",
+            0
+        ),
         2
     )
 
@@ -446,24 +460,112 @@ def render_signal(
     )
 
     # =========================================
-    # 🔥 RANGE SEMANTIC RENDER
+    # 🔥 SEMANTIC OVERLAY RENDER
     # =========================================
 
     if range_semantics:
 
+        rotation = (
+            range_semantics.get(
+                "rotation_stability"
+            )
+        )
+
+        context = (
+            range_semantics.get(
+                "context_state"
+            )
+        )
+
+        behavior = (
+            range_semantics.get(
+                "rotational_behavior"
+            )
+        )
+
+        # =====================================
+        # 🔥 CONTEXT OVERLAY
+        # =====================================
+
+        if rotation == "Stable":
+
+            context_overlay = (
+                "TRANSITIONAL EDGE"
+            )
+
+        elif rotation == "Fragmented":
+
+            context_overlay = (
+                "FRAGMENTED RANGE"
+            )
+
+        else:
+
+            context_overlay = (
+                "TRANSITIONAL ROTATION"
+            )
+
+        # =====================================
+        # 🔥 TEXTURE OVERLAY
+        # =====================================
+
+        if behavior == "Noisy":
+
+            texture_overlay = "NOISY"
+
+        elif context == "Aligned":
+
+            texture_overlay = "CLEAN"
+
+        elif context == "Counter-Rotational":
+
+            texture_overlay = (
+                "COUNTER-FLOW"
+            )
+
+        else:
+
+            texture_overlay = "MIXED"
+
+        # =====================================
+        # 🔥 PROFILE OVERLAY
+        # =====================================
+
+        if behavior == "Reactive":
+
+            profile_overlay = (
+                "SHORT EXHAUSTION MOVE"
+            )
+
+        elif behavior == "Balanced":
+
+            profile_overlay = (
+                "ROTATIONAL REJECTION"
+            )
+
+        else:
+
+            profile_overlay = (
+                "LOW STRUCTURAL CLARITY"
+            )
+
+        # =====================================
+        # 🔥 RUNTIME OVERLAY
+        # =====================================
+
         print(
-            f"   ↳ rotation: "
-            f"{range_semantics.get('rotation_stability')}"
+            f"   ↳ CONTEXT: "
+            f"{context_overlay}"
         )
 
         print(
-            f"   ↳ context: "
-            f"{range_semantics.get('context_state')}"
+            f"   ↳ TEXTURE: "
+            f"{texture_overlay}"
         )
 
         print(
-            f"   ↳ behavior: "
-            f"{range_semantics.get('rotational_behavior')}"
+            f"   ↳ PROFILE: "
+            f"{profile_overlay}"
         )
 
     # =========================================

@@ -22,6 +22,22 @@ from trade_lifecycle.lifecycle_renderer import (
 )
 
 # =====================================================
+# 🔥 BEHAVIORAL CONTINUITY
+# =====================================================
+
+from behavioral_continuity.continuity_snapshot import (
+    ContinuitySnapshot
+)
+
+from behavioral_continuity.continuity_observer import (
+    ContinuityObserver
+)
+
+from behavioral_continuity.continuity_trace_logger import (
+    ContinuityTraceLogger
+)
+
+# =====================================================
 # 🔥 TACTICAL RANGE INTERPRETATION
 # =====================================================
 
@@ -634,6 +650,18 @@ def run_engine():
     trade_manager = TradeManager()
 
     # =================================================
+    # 🔥 CONTINUITY OBSERVATION
+    # =================================================
+
+    continuity_observer = (
+        ContinuityObserver()
+    )
+
+    continuity_logger = (
+        ContinuityTraceLogger()
+    )
+
+    # =================================================
     # 🔥 RANGE INTERPRETER
     # =================================================
 
@@ -715,6 +743,40 @@ def run_engine():
                     all_signals
                 )
             )
+
+            # =====================================
+            # 🔥 PASSIVE CONTINUITY OBSERVATION
+            # =====================================
+
+            active_trades = (
+                trade_manager.export_active_trades()
+            )
+
+            for trade_state in active_trades:
+
+                snapshot = (
+                    ContinuitySnapshot.from_trade_state(
+                        trade_state
+                    )
+                )
+
+                continuity_observer.observe(
+                    snapshot
+                )
+
+                semantic_trace = (
+                    continuity_observer.export_latest_trace(
+                        trade_state.get(
+                            "trade_id"
+                        )
+                    )
+                )
+
+                if semantic_trace:
+
+                    continuity_logger.store(
+                        semantic_trace
+                    )
 
             # =====================================
             # 🔥 MARKET STATE
@@ -919,6 +981,10 @@ def run_engine():
             # =====================================
 
             trade_manager.cleanup_closed_trades()
+
+            continuity_observer.cleanup_closed_sequences(
+                active_trades
+            )
 
             # =====================================
             # 🔥 SLEEP CONTROL

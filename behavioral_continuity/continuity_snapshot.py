@@ -31,86 +31,288 @@ class ContinuitySnapshot:
         self.timestamp = time.time()
 
         # ==============================================
-        # 🔥 IDENTITY
-        # ==============================================
-
-        self.trade_id = trade.trade_id
-
-        self.symbol = trade.symbol
-
-        self.direction = trade.direction
-
-        self.trade_type = trade.trade_type
-
-        self.state = trade.state
-
-        # ==============================================
-        # 🔥 LIFECYCLE STATE
-        # ==============================================
-
-        self.cycles_alive = (
-            trade.cycles_alive
-        )
-
-        # ==============================================
-        # 🔥 RAW CONTINUITY PRIMITIVES
-        # ==============================================
-
-        self.initial_probability = (
-            trade.initial_probability
-        )
-
-        self.current_probability = (
-            trade.current_probability
-        )
-
-        self.highest_probability = (
-            trade.highest_probability
-        )
-
-        self.lowest_probability = (
-            trade.lowest_probability
-        )
-
-        self.deterioration_score = (
-            trade.deterioration_score
-        )
-
-        self.warning_count = (
-            trade.warning_count
-        )
-
-        self.recovery_count = (
-            trade.recovery_count
-        )
-
-        self.weak_cycles = (
-            trade.consecutive_weak_cycles
-        )
-
-        self.recovery_cycles = (
-            trade.consecutive_recovery_cycles
-        )
-
-        # ==============================================
-        # 🔥 RAW CONTINUITY SEQUENCE
+        # 🔥 NORMALIZATION LAYER
         # ==============================================
 
         """
+        Runtime compatibility normalization.
+
+        Supports:
+        - TradeObject instances
+        - dict-based exported lifecycle states
+
         Important:
-        This is the primary continuity source.
-
-        Sequence-first continuity preservation
-        is preferred over scalar-only compression.
+        This layer is normalization only.
+        NOT semantic interpretation.
         """
 
-        self.continuity_sequence = list(
-            getattr(
-                trade,
-                "continuity_sequence",
-                []
+        if isinstance(trade, dict):
+
+            continuity = trade.get(
+                "continuity_primitives",
+                {}
             )
-        )
+
+            structure = trade.get(
+                "structure_memory",
+                {}
+            )
+
+            execution = trade.get(
+                "execution_state",
+                {}
+            )
+
+            # ==========================================
+            # 🔥 IDENTITY
+            # ==========================================
+
+            self.trade_id = trade.get(
+                "trade_id"
+            )
+
+            self.symbol = trade.get(
+                "symbol"
+            )
+
+            self.direction = trade.get(
+                "direction"
+            )
+
+            self.trade_type = trade.get(
+                "trade_type"
+            )
+
+            self.state = trade.get(
+                "state"
+            )
+
+            # ==========================================
+            # 🔥 LIFECYCLE
+            # ==========================================
+
+            self.cycles_alive = trade.get(
+                "cycles_alive",
+                0
+            )
+
+            # ==========================================
+            # 🔥 CONTINUITY PRIMITIVES
+            # ==========================================
+
+            self.initial_probability = continuity.get(
+                "initial_probability",
+                0.5
+            )
+
+            self.current_probability = continuity.get(
+                "current_probability",
+                0.5
+            )
+
+            self.highest_probability = continuity.get(
+                "highest_probability",
+                0.5
+            )
+
+            self.lowest_probability = continuity.get(
+                "lowest_probability",
+                0.5
+            )
+
+            self.deterioration_score = continuity.get(
+                "deterioration_score",
+                0.0
+            )
+
+            self.warning_count = continuity.get(
+                "warning_count",
+                0
+            )
+
+            self.recovery_count = continuity.get(
+                "recovery_count",
+                0
+            )
+
+            self.weak_cycles = continuity.get(
+                "weak_cycles",
+                0
+            )
+
+            self.recovery_cycles = continuity.get(
+                "recovery_cycles",
+                0
+            )
+
+            # ==========================================
+            # 🔥 CONTINUITY SEQUENCE
+            # ==========================================
+
+            self.continuity_sequence = list(
+                continuity.get(
+                    "continuity_sequence",
+                    []
+                )
+            )
+
+            # ==========================================
+            # 🔥 STRUCTURE MEMORY
+            # ==========================================
+
+            self.last_trend = structure.get(
+                "trend",
+                "unknown"
+            )
+
+            self.last_setup = structure.get(
+                "setup",
+                "unknown"
+            )
+
+            self.last_confidence = structure.get(
+                "confidence",
+                "LOW"
+            )
+
+            # ==========================================
+            # 🔥 EXECUTION VISIBILITY
+            # ==========================================
+
+            self.exit_pending = execution.get(
+                "exit_pending",
+                False
+            )
+
+            self.exit_confirmed = execution.get(
+                "exit_confirmed",
+                False
+            )
+
+            self.exit_reason = execution.get(
+                "exit_reason"
+            )
+
+            self.continuation_mature = execution.get(
+                "continuation_mature",
+                False
+            )
+
+        else:
+
+            # ==========================================
+            # 🔥 OBJECT COMPATIBILITY
+            # ==========================================
+
+            self.trade_id = trade.trade_id
+
+            self.symbol = trade.symbol
+
+            self.direction = trade.direction
+
+            self.trade_type = trade.trade_type
+
+            self.state = trade.state
+
+            # ==========================================
+            # 🔥 LIFECYCLE STATE
+            # ==========================================
+
+            self.cycles_alive = (
+                trade.cycles_alive
+            )
+
+            # ==========================================
+            # 🔥 RAW CONTINUITY PRIMITIVES
+            # ==========================================
+
+            self.initial_probability = (
+                trade.initial_probability
+            )
+
+            self.current_probability = (
+                trade.current_probability
+            )
+
+            self.highest_probability = (
+                trade.highest_probability
+            )
+
+            self.lowest_probability = (
+                trade.lowest_probability
+            )
+
+            self.deterioration_score = (
+                trade.deterioration_score
+            )
+
+            self.warning_count = (
+                trade.warning_count
+            )
+
+            self.recovery_count = (
+                trade.recovery_count
+            )
+
+            self.weak_cycles = (
+                trade.consecutive_weak_cycles
+            )
+
+            self.recovery_cycles = (
+                trade.consecutive_recovery_cycles
+            )
+
+            # ==========================================
+            # 🔥 RAW CONTINUITY SEQUENCE
+            # ==========================================
+
+            self.continuity_sequence = list(
+                getattr(
+                    trade,
+                    "continuity_sequence",
+                    []
+                )
+            )
+
+            # ==========================================
+            # 🔥 STRUCTURE MEMORY
+            # ==========================================
+
+            self.last_trend = (
+                trade.last_trend
+            )
+
+            self.last_setup = (
+                trade.last_setup
+            )
+
+            self.last_confidence = (
+                trade.last_confidence
+            )
+
+            # ==========================================
+            # 🔥 EXECUTION VISIBILITY
+            # ==========================================
+
+            self.exit_pending = (
+                trade.exit_pending
+            )
+
+            self.exit_confirmed = (
+                trade.exit_confirmed
+            )
+
+            self.exit_reason = (
+                trade.exit_reason
+            )
+
+            self.continuation_mature = (
+                trade.continuation_mature
+            )
+
+        # ==============================================
+        # 🔥 CONTINUITY DERIVATIONS
+        # ==============================================
 
         self.latest_transition = (
             self._extract_latest_transition()
@@ -125,62 +327,8 @@ class ContinuitySnapshot:
         )
 
         # ==============================================
-        # 🔥 STRUCTURE MEMORY
-        # ==============================================
-
-        self.last_trend = (
-            trade.last_trend
-        )
-
-        self.last_setup = (
-            trade.last_setup
-        )
-
-        self.last_confidence = (
-            trade.last_confidence
-        )
-
-        # ==============================================
-        # 🔥 EXECUTION VISIBILITY
-        # ==============================================
-
-        """
-        Important:
-        These are treated as execution visibility fields,
-        NOT behavioral truth descriptors.
-        """
-
-        self.exit_pending = (
-            trade.exit_pending
-        )
-
-        self.exit_confirmed = (
-            trade.exit_confirmed
-        )
-
-        self.exit_reason = (
-            trade.exit_reason
-        )
-
-        self.continuation_mature = (
-            trade.continuation_mature
-        )
-
-        # ==============================================
         # 🔥 DESCRIPTIVE CONTINUITY SEMANTICS
         # ==============================================
-
-        """
-        These remain:
-        - descriptive
-        - observational
-        - non-authoritative
-
-        They should NOT become:
-        - execution directives
-        - predictive certainty
-        - adaptive intelligence
-        """
 
         self.probability_position = (
             self._compute_probability_position()
@@ -316,14 +464,6 @@ class ContinuitySnapshot:
 
     def _compute_continuity_pressure(self):
 
-        """
-        Important:
-        Pressure is NOT collapse.
-
-        This remains:
-        continuity stress visibility only.
-        """
-
         pressure = 0.0
 
         pressure += (
@@ -350,12 +490,6 @@ class ContinuitySnapshot:
     # ==================================================
 
     def _detect_directional_memory(self):
-
-        """
-        Important:
-        This remains descriptive continuity retention,
-        NOT trend certainty.
-        """
 
         if (
             self.current_probability
@@ -407,16 +541,6 @@ class ContinuitySnapshot:
 
     def _detect_persistence_state(self):
 
-        """
-        Important:
-        This is descriptive topology only.
-
-        NOT:
-        - execution confidence
-        - market truth
-        - predictive validity
-        """
-
         if (
             self.continuation_mature
             and self.directional_memory
@@ -448,10 +572,6 @@ class ContinuitySnapshot:
 
         return {
 
-            # ==========================================
-            # 🔥 IDENTITY
-            # ==========================================
-
             "timestamp":
                 self.timestamp,
 
@@ -470,16 +590,8 @@ class ContinuitySnapshot:
             "state":
                 self.state,
 
-            # ==========================================
-            # 🔥 LIFECYCLE STATE
-            # ==========================================
-
             "cycles_alive":
                 self.cycles_alive,
-
-            # ==========================================
-            # 🔥 RAW CONTINUITY
-            # ==========================================
 
             "continuity_primitives": {
 
@@ -538,10 +650,6 @@ class ContinuitySnapshot:
                     self.transition_stability
             },
 
-            # ==========================================
-            # 🔥 STRUCTURE MEMORY
-            # ==========================================
-
             "structure_memory": {
 
                 "trend":
@@ -553,10 +661,6 @@ class ContinuitySnapshot:
                 "confidence":
                     self.last_confidence
             },
-
-            # ==========================================
-            # 🔥 EXECUTION VISIBILITY
-            # ==========================================
 
             "execution_visibility": {
 
@@ -572,10 +676,6 @@ class ContinuitySnapshot:
                 "continuation_mature":
                     self.continuation_mature
             },
-
-            # ==========================================
-            # 🔥 DESCRIPTIVE CONTINUITY
-            # ==========================================
 
             "continuity_semantics": {
 

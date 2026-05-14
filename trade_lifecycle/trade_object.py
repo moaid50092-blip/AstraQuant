@@ -22,6 +22,12 @@ class TradeObject:
         - market prediction
         - execution authority
         - portfolio awareness
+
+    Important:
+    - This object stores raw lifecycle continuity
+    - NOT behavioral intelligence
+    - NOT predictive semantics
+    - NOT adaptive logic
     """
 
     # ==================================================
@@ -64,6 +70,14 @@ class TradeObject:
         # 🔥 CONTINUATION MATURITY
         # ==========================================
 
+        """
+        NOTE:
+        This remains for runtime compatibility only.
+
+        It is currently a lifecycle heuristic,
+        NOT a behavioral truth descriptor.
+        """
+
         self.continuation_mature = False
 
         # ==========================================
@@ -90,6 +104,17 @@ class TradeObject:
         # 🔥 DETERIORATION
         # ==========================================
 
+        """
+        NOTE:
+        deterioration_score currently represents
+        continuity pressure accumulation.
+
+        It does NOT necessarily imply:
+        collapse
+        failure
+        entropy takeover
+        """
+
         self.deterioration_score = 0.0
 
         self.warning_count = 0
@@ -99,6 +124,22 @@ class TradeObject:
         self.consecutive_weak_cycles = 0
 
         self.consecutive_recovery_cycles = 0
+
+        # ==========================================
+        # 🔥 RAW CONTINUITY STREAM
+        # ==========================================
+
+        """
+        Raw continuity preservation layer.
+
+        Important:
+        - sequence-first
+        - non-semantic
+        - non-predictive
+        - no execution authority
+        """
+
+        self.continuity_sequence = []
 
         # ==========================================
         # 🔥 STRUCTURE
@@ -179,42 +220,114 @@ class TradeObject:
     def _store_snapshot(self, signal):
 
         snapshot = {
-            "timestamp": time.time(),
 
-            "probability": round(
-                float(signal.get("probability", 0)),
-                3
-            ),
+            "timestamp":
+                time.time(),
 
-            "strength": round(
-                float(signal.get("strength", 0)),
-                3
-            ),
+            "probability":
+                round(
+                    float(
+                        signal.get(
+                            "probability",
+                            0
+                        )
+                    ),
+                    3
+                ),
 
-            "trend": signal.get(
-                "trend",
-                "unknown"
-            ),
+            "strength":
+                round(
+                    float(
+                        signal.get(
+                            "strength",
+                            0
+                        )
+                    ),
+                    3
+                ),
 
-            "setup": signal.get(
-                "setup",
-                "unknown"
-            ),
+            "trend":
+                signal.get(
+                    "trend",
+                    "unknown"
+                ),
 
-            "confidence": signal.get(
-                "confidence_label",
-                "LOW"
-            ),
+            "setup":
+                signal.get(
+                    "setup",
+                    "unknown"
+                ),
 
-            "decision": signal.get(
-                "decision",
-                "IGNORE"
-            )
+            "confidence":
+                signal.get(
+                    "confidence_label",
+                    "LOW"
+                ),
+
+            "decision":
+                signal.get(
+                    "decision",
+                    "IGNORE"
+                )
         }
 
         self.history.append(snapshot)
 
         self.history = self.history[-25:]
+
+    # ==================================================
+    # 🔥 RAW CONTINUITY STORAGE
+    # ==================================================
+
+    def _store_continuity_transition(
+        self,
+        probability_delta
+    ):
+
+        if probability_delta > 0.015:
+
+            transition = "UP"
+
+        elif probability_delta < -0.015:
+
+            transition = "DOWN"
+
+        else:
+
+            transition = "STABLE"
+
+        continuity_event = {
+
+            "timestamp":
+                time.time(),
+
+            "cycle":
+                self.cycles_alive,
+
+            "transition":
+                transition,
+
+            "probability_delta":
+                round(
+                    probability_delta,
+                    4
+                ),
+
+            "current_probability":
+                round(
+                    self.current_probability,
+                    3
+                )
+        }
+
+        self.continuity_sequence.append(
+            continuity_event
+        )
+
+        # prevent uncontrolled growth
+        self.continuity_sequence = (
+            self.continuity_sequence[-50:]
+        )
 
     # ==================================================
     # 🔥 BEHAVIORAL TRACE
@@ -330,13 +443,21 @@ class TradeObject:
         )
 
         # ==========================================
-        # 🔥 DETERIORATION TRACKING
+        # 🔥 RAW CONTINUITY DELTA
         # ==========================================
 
         delta = (
             new_probability
             - previous_probability
         )
+
+        self._store_continuity_transition(
+            delta
+        )
+
+        # ==========================================
+        # 🔥 DETERIORATION TRACKING
+        # ==========================================
 
         if delta < -0.015:
 
@@ -346,7 +467,9 @@ class TradeObject:
 
             self.warning_count += 1
 
-            self.deterioration_score += abs(delta)
+            self.deterioration_score += abs(
+                delta
+            )
 
         elif delta > 0.015:
 
@@ -424,6 +547,15 @@ class TradeObject:
 
     def _evaluate_exit_watch(self, signal):
 
+        """
+        Runtime compatibility layer.
+
+        Important:
+        This remains execution-oriented logic
+        and should eventually migrate outside
+        raw lifecycle continuity storage.
+        """
+
         decision = signal.get(
             "decision",
             "IGNORE"
@@ -485,17 +617,139 @@ class TradeObject:
 
         return {
 
-            "trade_id": self.trade_id,
+            # ======================================
+            # 🔥 IDENTITY
+            # ======================================
 
-            "symbol": self.symbol,
+            "trade_id":
+                self.trade_id,
 
-            "direction": self.direction,
+            "symbol":
+                self.symbol,
 
-            "trade_type": self.trade_type,
+            "direction":
+                self.direction,
 
-            "entry_type": self.entry_type,
+            "trade_type":
+                self.trade_type,
 
-            "state": self.state,
+            "entry_type":
+                self.entry_type,
+
+            # ======================================
+            # 🔥 LIFECYCLE STATE
+            # ======================================
+
+            "state":
+                self.state,
+
+            "cycles_alive":
+                self.cycles_alive,
+
+            "created_at":
+                self.created_at,
+
+            "last_update":
+                self.last_update,
+
+            # ======================================
+            # 🔥 RAW CONTINUITY PRIMITIVES
+            # ======================================
+
+            "continuity_primitives": {
+
+                "initial_probability":
+                    round(
+                        self.initial_probability,
+                        3
+                    ),
+
+                "current_probability":
+                    round(
+                        self.current_probability,
+                        3
+                    ),
+
+                "highest_probability":
+                    round(
+                        self.highest_probability,
+                        3
+                    ),
+
+                "lowest_probability":
+                    round(
+                        self.lowest_probability,
+                        3
+                    ),
+
+                "deterioration_score":
+                    round(
+                        self.deterioration_score,
+                        3
+                    ),
+
+                "warning_count":
+                    self.warning_count,
+
+                "recovery_count":
+                    self.recovery_count,
+
+                "weak_cycles":
+                    self.consecutive_weak_cycles,
+
+                "recovery_cycles":
+                    self.consecutive_recovery_cycles,
+
+                "continuity_sequence":
+                    self.continuity_sequence
+            },
+
+            # ======================================
+            # 🔥 STRUCTURE MEMORY
+            # ======================================
+
+            "structure_memory": {
+
+                "trend":
+                    self.last_trend,
+
+                "setup":
+                    self.last_setup,
+
+                "confidence":
+                    self.last_confidence,
+
+                "reasons":
+                    self.last_reason
+            },
+
+            # ======================================
+            # 🔥 EXECUTION STATE
+            # ======================================
+
+            "execution_state": {
+
+                "exit_pending":
+                    self.exit_pending,
+
+                "exit_confirmed":
+                    self.exit_confirmed,
+
+                "exit_reason":
+                    self.exit_reason,
+
+                "continuation_mature":
+                    self.continuation_mature
+            },
+
+            # ======================================
+            # 🔥 LEGACY COMPATIBILITY
+            # ======================================
+
+            """
+            Preserved temporarily
+            for runtime compatibility.
+            """
 
             "continuation_mature":
                 self.continuation_mature,
@@ -523,9 +777,6 @@ class TradeObject:
                     self.lowest_probability,
                     3
                 ),
-
-            "cycles_alive":
-                self.cycles_alive,
 
             "deterioration_score":
                 round(
@@ -564,11 +815,5 @@ class TradeObject:
                 self.exit_confirmed,
 
             "exit_reason":
-                self.exit_reason,
-
-            "created_at":
-                self.created_at,
-
-            "last_update":
-                self.last_update
+                self.exit_reason
         }

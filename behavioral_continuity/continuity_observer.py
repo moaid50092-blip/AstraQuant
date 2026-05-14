@@ -341,18 +341,22 @@ class ContinuityObserver:
         )
 
     # ==================================================
-    # 🔥 CLEANUP
+    # 🔥 CLEANUP CLOSED SEQUENCES
     # ==================================================
 
-    def cleanup(self, active_trade_ids):
+    def cleanup_closed_sequences(
+        self,
+        active_trade_ids
+    ):
 
         removable = []
 
-        for trade_id in (
+        for trade_id in list(
             self.snapshot_memory.keys()
         ):
 
             if trade_id not in active_trade_ids:
+
                 removable.append(
                     trade_id
                 )
@@ -362,3 +366,16 @@ class ContinuityObserver:
             del self.snapshot_memory[
                 trade_id
             ]
+
+    # ==================================================
+    # 🔥 BACKWARD COMPATIBILITY
+    # ==================================================
+
+    def cleanup(
+        self,
+        active_trade_ids
+    ):
+
+        self.cleanup_closed_sequences(
+            active_trade_ids
+        )

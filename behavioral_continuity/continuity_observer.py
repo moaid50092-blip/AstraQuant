@@ -1,3 +1,5 @@
+# behavioral_continuity/continuity_observer.py
+
 from collections import deque
 
 from behavioral_continuity.continuity_snapshot import (
@@ -11,17 +13,18 @@ class ContinuityObserver:
     Passive sequence-aware behavioral observer.
 
     Responsibilities:
-    - Read continuity snapshots across time
-    - Observe behavioral persistence patterns
+    - Observe continuity behavior across time
+    - Preserve longitudinal continuity structure
     - Detect primitive continuity archetypes
-    - Produce descriptive semantic traces
+    - Produce descriptive continuity traces
 
     This layer does NOT:
     - predict outcomes
-    - modify execution
+    - generate execution directives
     - mutate lifecycle state
-    - generate scores
+    - modify probability
     - optimize behavior
+    - generate adaptive intelligence
     """
 
     # ==================================================
@@ -40,6 +43,16 @@ class ContinuityObserver:
     # ==================================================
 
     def observe(self, trade):
+
+        """
+        Important:
+        Observer consumes lifecycle state passively.
+
+        Observer NEVER modifies:
+        - trade state
+        - execution logic
+        - lifecycle behavior
+        """
 
         snapshot = ContinuitySnapshot(
             trade
@@ -71,6 +84,10 @@ class ContinuityObserver:
 
         return {
 
+            # ==========================================
+            # 🔥 IDENTITY
+            # ==========================================
+
             "trade_id":
                 snapshot.trade_id,
 
@@ -83,20 +100,48 @@ class ContinuityObserver:
             "trade_type":
                 snapshot.trade_type,
 
+            # ==========================================
+            # 🔥 CONTINUITY STATE
+            # ==========================================
+
             "cycles_alive":
                 snapshot.cycles_alive,
 
-            "archetypes":
-                archetypes,
-
             "sequence_depth":
                 len(sequence),
+
+            # ==========================================
+            # 🔥 RAW CONTINUITY
+            # ==========================================
+
+            "latest_transition":
+                snapshot.latest_transition,
+
+            "transition_balance":
+                snapshot.transition_balance,
+
+            "transition_stability":
+                snapshot.transition_stability,
+
+            # ==========================================
+            # 🔥 DESCRIPTIVE CONTINUITY
+            # ==========================================
 
             "current_state":
                 snapshot.persistence_state,
 
             "continuity_pressure":
-                snapshot.continuity_pressure
+                snapshot.continuity_pressure,
+
+            "directional_memory":
+                snapshot.directional_memory,
+
+            # ==========================================
+            # 🔥 ARCHETYPES
+            # ==========================================
+
+            "archetypes":
+                archetypes
         }
 
     # ==================================================
@@ -107,6 +152,17 @@ class ContinuityObserver:
         self,
         sequence
     ):
+
+        """
+        Important:
+        Archetypes are NOT:
+        - predictions
+        - classifications of truth
+        - execution signals
+
+        They are:
+        descriptive continuity topologies only.
+        """
 
         archetypes = []
 
@@ -159,20 +215,47 @@ class ContinuityObserver:
         sequence
     ):
 
+        """
+        Observes:
+        continuity surviving under pressure.
+
+        Important:
+        pressure != collapse
+        """
+
         recent = sequence[-5:]
 
         weak_presence = any(
+
             s.weak_cycles > 0
+
             for s in recent
         )
 
         recovery_presence = any(
+
             s.recovery_cycles > 0
+
             for s in recent
         )
 
         directional_memory_alive = all(
-            s.directional_memory != "WEAKENING"
+
+            s.directional_memory
+            != "WEAKENING"
+
+            for s in recent
+        )
+
+        fragmented_structure = any(
+
+            s.transition_stability
+            == "CONTESTED"
+
+            or
+            s.transition_stability
+            == "FRAGMENTED"
+
             for s in recent
         )
 
@@ -181,6 +264,7 @@ class ContinuityObserver:
             weak_presence
             and recovery_presence
             and directional_memory_alive
+            and fragmented_structure
         )
 
     # ==================================================
@@ -192,27 +276,49 @@ class ContinuityObserver:
         sequence
     ):
 
-        recent = sequence[-4:]
+        """
+        Observes:
+        recovery memory surviving across
+        multiple continuity transitions.
+        """
 
-        recovery_count = sum(
+        recent = sequence[-5:]
 
-            1 for s in recent
+        recovery_presence = sum(
+
+            1
+            for s in recent
 
             if s.recovery_cycles > 0
         )
 
         retained_memory = sum(
 
-            1 for s in recent
+            1
+            for s in recent
 
-            if s.directional_memory
+            if (
+                s.directional_memory
                 == "RETAINED"
+            )
+        )
+
+        stable_transitions = sum(
+
+            1
+            for s in recent
+
+            if (
+                s.transition_stability
+                == "STABLE"
+            )
         )
 
         return (
 
-            recovery_count >= 2
+            recovery_presence >= 2
             and retained_memory >= 2
+            and stable_transitions >= 1
         )
 
     # ==================================================
@@ -224,7 +330,15 @@ class ContinuityObserver:
         sequence
     ):
 
-        recent = sequence[-5:]
+        """
+        Observes:
+        continuity weakening across time.
+
+        Important:
+        weakening != guaranteed collapse
+        """
+
+        recent = sequence[-6:]
 
         increasing_pressure = (
 
@@ -235,16 +349,31 @@ class ContinuityObserver:
 
         weakening_memory = sum(
 
-            1 for s in recent
+            1
+            for s in recent
 
-            if s.directional_memory
+            if (
+                s.directional_memory
                 == "WEAKENING"
+            )
+        )
+
+        unstable_transitions = sum(
+
+            1
+            for s in recent
+
+            if (
+                s.transition_stability
+                != "STABLE"
+            )
         )
 
         return (
 
             increasing_pressure
             and weakening_memory >= 3
+            and unstable_transitions >= 3
         )
 
     # ==================================================
@@ -256,13 +385,22 @@ class ContinuityObserver:
         sequence
     ):
 
+        """
+        Observes:
+        continuity surviving despite
+        unstable sequence topology.
+        """
+
         recent = sequence[-6:]
 
         alternating_behavior = False
 
         transitions = 0
 
-        for i in range(1, len(recent)):
+        for i in range(
+            1,
+            len(recent)
+        ):
 
             previous = recent[i - 1]
             current = recent[i]
@@ -276,6 +414,7 @@ class ContinuityObserver:
             )
 
             if previous_state != current_state:
+
                 transitions += 1
 
         if transitions >= 3:
@@ -292,10 +431,19 @@ class ContinuityObserver:
             for s in recent
         )
 
+        fragmented_transition_presence = any(
+
+            s.transition_stability
+            == "FRAGMENTED"
+
+            for s in recent
+        )
+
         return (
 
             alternating_behavior
             and continuity_alive
+            and fragmented_transition_presence
         )
 
     # ==================================================
@@ -306,6 +454,12 @@ class ContinuityObserver:
         self,
         sequence
     ):
+
+        """
+        Observes:
+        continuity dissolving back into
+        unstable entropy conditions.
+        """
 
         recent = sequence[-6:]
 
@@ -333,12 +487,45 @@ class ContinuityObserver:
             for s in recent
         )
 
+        fragmented_transitions = all(
+
+            s.transition_stability
+            != "STABLE"
+
+            for s in recent
+        )
+
         return (
 
             persistent_weakness
             and absent_recovery
             and weakened_memory
+            and fragmented_transitions
         )
+
+    # ==================================================
+    # 🔥 EXPORT SEQUENCE
+    # ==================================================
+
+    def export_sequence(
+        self,
+        trade_id
+    ):
+
+        if (
+            trade_id
+            not in self.snapshot_memory
+        ):
+            return []
+
+        return [
+
+            snapshot.export()
+
+            for snapshot in self.snapshot_memory[
+                trade_id
+            ]
+        ]
 
     # ==================================================
     # 🔥 CLEANUP CLOSED SEQUENCES
@@ -351,11 +538,28 @@ class ContinuityObserver:
 
         removable = []
 
+        active_ids = set()
+
+        for item in active_trade_ids:
+
+            if isinstance(item, dict):
+
+                trade_id = item.get(
+                    "trade_id"
+                )
+
+                if trade_id:
+                    active_ids.add(trade_id)
+
+            else:
+
+                active_ids.add(item)
+
         for trade_id in list(
             self.snapshot_memory.keys()
         ):
 
-            if trade_id not in active_trade_ids:
+            if trade_id not in active_ids:
 
                 removable.append(
                     trade_id

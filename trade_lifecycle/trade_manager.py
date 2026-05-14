@@ -18,14 +18,13 @@ class TradeManager:
     - Track active trades
     - Route lifecycle evaluation
     - Maintain trade continuity
-    - Interpret deterioration calmly
+    - Coordinate lifecycle progression
 
-    This layer does NOT:
-    - generate signals
-    - mutate scanner logic
-    - override probability logic
-    - control execution
-    - think about the market
+    Important:
+    - This layer is NOT a behavioral interpreter
+    - This layer is NOT a market intelligence engine
+    - This layer should remain execution-oriented
+    - Behavioral semantics must remain external
     """
 
     # ==================================================
@@ -83,9 +82,11 @@ class TradeManager:
 
                 lifecycle_events.append({
 
-                    "type": "TRADE_CREATED",
+                    "type":
+                        "TRADE_CREATED",
 
-                    "symbol": symbol,
+                    "symbol":
+                        symbol,
 
                     "trade_type":
                         trade.trade_type,
@@ -159,125 +160,223 @@ class TradeManager:
         # 🔥 EXIT WATCH
         # ==============================================
 
-        if profile.should_start_exit_watch(
-            trade
-        ):
-
-            if not trade.exit_pending:
-
-                trade.exit_pending = True
-
-                lifecycle_events.append({
-
-                    "type":
-                        "EXIT_WATCH",
-
-                    "symbol":
-                        trade.symbol,
-
-                    "trade_type":
-                        trade.trade_type,
-
-                    "probability":
-                        round(
-                            trade.current_probability,
-                            3
-                        ),
-
-                    "deterioration":
-                        round(
-                            trade.deterioration_score,
-                            3
-                        ),
-
-                    "weak_cycles":
-                        trade.consecutive_weak_cycles
-                })
+        self._handle_exit_watch(
+            trade,
+            profile,
+            lifecycle_events
+        )
 
         # ==============================================
         # 🔥 EXIT CONFIRMATION
         # ==============================================
 
-        if profile.should_confirm_exit(
-            trade
-        ):
-
-            if (
-                not trade.exit_confirmed
-            ):
-
-                trade.exit_confirmed = True
-
-                trade.state = "EXIT"
-
-                lifecycle_events.append({
-
-                    "type":
-                        "EXIT_CONFIRMED",
-
-                    "symbol":
-                        trade.symbol,
-
-                    "trade_type":
-                        trade.trade_type,
-
-                    "direction":
-                        trade.direction,
-
-                    "held_cycles":
-                        trade.cycles_alive,
-
-                    "peak_probability":
-                        round(
-                            trade.highest_probability,
-                            3
-                        ),
-
-                    "final_probability":
-                        round(
-                            trade.current_probability,
-                            3
-                        ),
-
-                    "reason":
-                        trade.exit_reason
-                        or "deterioration"
-                })
+        self._handle_exit_confirmation(
+            trade,
+            profile,
+            lifecycle_events
+        )
 
         # ==============================================
         # 🔥 RECOVERY
         # ==============================================
 
+        self._handle_recovery_transition(
+            trade,
+            previous_state,
+            lifecycle_events
+        )
+
+    # ==================================================
+    # 🔥 EXIT WATCH
+    # ==================================================
+
+    def _handle_exit_watch(
+        self,
+        trade,
+        profile,
+        lifecycle_events
+    ):
+
+        """
+        Runtime execution coordination only.
+
+        Important:
+        - NOT behavioral interpretation
+        - NOT collapse detection
+        - NOT entropy analysis
+        - NOT continuity intelligence
+        """
+
+        should_watch = (
+            profile.should_start_exit_watch(
+                trade
+            )
+        )
+
+        if not should_watch:
+            return
+
+        if trade.exit_pending:
+            return
+
+        trade.exit_pending = True
+
+        lifecycle_events.append({
+
+            "type":
+                "EXIT_WATCH",
+
+            "symbol":
+                trade.symbol,
+
+            "trade_type":
+                trade.trade_type,
+
+            "probability":
+                round(
+                    trade.current_probability,
+                    3
+                ),
+
+            "continuity_pressure":
+                round(
+                    trade.deterioration_score,
+                    3
+                ),
+
+            "weak_cycles":
+                trade.consecutive_weak_cycles
+        })
+
+    # ==================================================
+    # 🔥 EXIT CONFIRMATION
+    # ==================================================
+
+    def _handle_exit_confirmation(
+        self,
+        trade,
+        profile,
+        lifecycle_events
+    ):
+
+        """
+        Execution lifecycle confirmation layer.
+
+        Important:
+        - Confirmation logic remains heuristic
+        - Does NOT represent behavioral truth
+        - Does NOT imply real structural collapse
+        """
+
+        should_exit = (
+            profile.should_confirm_exit(
+                trade
+            )
+        )
+
+        if not should_exit:
+            return
+
+        if trade.exit_confirmed:
+            return
+
+        trade.exit_confirmed = True
+
+        trade.state = "EXIT"
+
+        lifecycle_events.append({
+
+            "type":
+                "EXIT_CONFIRMED",
+
+            "symbol":
+                trade.symbol,
+
+            "trade_type":
+                trade.trade_type,
+
+            "direction":
+                trade.direction,
+
+            "held_cycles":
+                trade.cycles_alive,
+
+            "peak_probability":
+                round(
+                    trade.highest_probability,
+                    3
+                ),
+
+            "final_probability":
+                round(
+                    trade.current_probability,
+                    3
+                ),
+
+            "reason":
+                trade.exit_reason
+                or "lifecycle_exit"
+        })
+
+    # ==================================================
+    # 🔥 RECOVERY TRANSITION
+    # ==================================================
+
+    def _handle_recovery_transition(
+        self,
+        trade,
+        previous_state,
+        lifecycle_events
+    ):
+
+        """
+        Runtime lifecycle recovery tracking.
+
+        Important:
+        - Recovery here means:
+          lifecycle stabilization only
+
+        - NOT:
+          market recovery truth
+          structural restoration
+          continuity certainty
+        """
+
+        if previous_state != "ACTIVE":
+            return
+
+        if not trade.exit_pending:
+            return
+
+        if trade.exit_confirmed:
+            return
+
         if (
-            previous_state == "ACTIVE"
-            and trade.exit_pending
-            and not trade.exit_confirmed
+            trade.consecutive_recovery_cycles
+            < 2
         ):
 
-            if (
-                trade.consecutive_recovery_cycles
-                >= 2
-            ):
+            return
 
-                trade.exit_pending = False
+        trade.exit_pending = False
 
-                lifecycle_events.append({
+        lifecycle_events.append({
 
-                    "type":
-                        "TRADE_RECOVERED",
+            "type":
+                "TRADE_RECOVERED",
 
-                    "symbol":
-                        trade.symbol,
+            "symbol":
+                trade.symbol,
 
-                    "trade_type":
-                        trade.trade_type,
+            "trade_type":
+                trade.trade_type,
 
-                    "probability":
-                        round(
-                            trade.current_probability,
-                            3
-                        )
-                })
+            "probability":
+                round(
+                    trade.current_probability,
+                    3
+                )
+        })
 
     # ==================================================
     # 🔥 MISSING SYMBOLS
@@ -288,6 +387,19 @@ class TradeManager:
         processed_symbols,
         lifecycle_events
     ):
+
+        """
+        Missing symbol handling.
+
+        Important:
+        Symbol disappearance currently represents:
+        continuity visibility loss
+
+        NOT:
+        guaranteed collapse
+        guaranteed entropy
+        guaranteed invalidation
+        """
 
         for (
             symbol,
@@ -300,8 +412,14 @@ class TradeManager:
                 continue
 
             # ==========================================
-            # 🔥 SOFT DETERIORATION
+            # 🔥 SOFT CONTINUITY PRESSURE
             # ==========================================
+
+            """
+            NOTE:
+            This remains heuristic lifecycle pressure,
+            NOT behavioral collapse detection.
+            """
 
             trade.consecutive_weak_cycles += 1
 
@@ -315,46 +433,51 @@ class TradeManager:
                 trade.trade_type
             )
 
-            if profile.should_confirm_exit(
-                trade
-            ):
+            should_exit = (
+                profile.should_confirm_exit(
+                    trade
+                )
+            )
 
-                trade.exit_confirmed = True
+            if not should_exit:
+                continue
 
-                trade.state = "EXIT"
+            trade.exit_confirmed = True
 
-                lifecycle_events.append({
+            trade.state = "EXIT"
 
-                    "type":
-                        "EXIT_CONFIRMED",
+            lifecycle_events.append({
 
-                    "symbol":
-                        trade.symbol,
+                "type":
+                    "EXIT_CONFIRMED",
 
-                    "trade_type":
-                        trade.trade_type,
+                "symbol":
+                    trade.symbol,
 
-                    "direction":
-                        trade.direction,
+                "trade_type":
+                    trade.trade_type,
 
-                    "held_cycles":
-                        trade.cycles_alive,
+                "direction":
+                    trade.direction,
 
-                    "peak_probability":
-                        round(
-                            trade.highest_probability,
-                            3
-                        ),
+                "held_cycles":
+                    trade.cycles_alive,
 
-                    "final_probability":
-                        round(
-                            trade.current_probability,
-                            3
-                        ),
+                "peak_probability":
+                    round(
+                        trade.highest_probability,
+                        3
+                    ),
 
-                    "reason":
-                        "signal_disappeared"
-                })
+                "final_probability":
+                    round(
+                        trade.current_probability,
+                        3
+                    ),
+
+                "reason":
+                    "signal_visibility_lost"
+            })
 
     # ==================================================
     # 🔥 CLEANUP

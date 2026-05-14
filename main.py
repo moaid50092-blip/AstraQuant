@@ -755,7 +755,7 @@ def run_engine():
             for trade_state in active_trades:
 
                 snapshot = (
-                    ContinuitySnapshot.from_trade_state(
+                    ContinuitySnapshot(
                         trade_state
                     )
                 )
@@ -982,7 +982,7 @@ def run_engine():
 
             trade_manager.cleanup_closed_trades()
 
-            continuity_observer.cleanup_closed_sequences(
+            continuity_observer.cleanup(
                 active_trades
             )
 

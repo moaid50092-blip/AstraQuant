@@ -730,7 +730,8 @@ def run_engine():
         try:
 
             current_cycle = get_cycle_epoch()
-# =====================================
+
+            # =====================================
             # 🔥 DUPLICATE CYCLE PROTECTION
             # =====================================
 
@@ -745,8 +746,7 @@ def run_engine():
                 '%H:%M:%S',
                 time.localtime()
             )
-
-            # =====================================
+# =====================================
             # 🔥 LOAD DATA
             # =====================================
 
@@ -845,7 +845,7 @@ def run_engine():
                         symbol
                     ] = trade_id
 
-                    continuity_logger.store(
+                    continuity_logger.log_observation(
                         observer_result
                     )
 
@@ -1033,7 +1033,8 @@ def run_engine():
                             f"   ↳ ARCHETYPES: "
                             f"{', '.join(archetypes)}"
                         )
-# =================================
+
+                # =================================
                 # 🔥 TACTICAL MEMORY EVENT
                 # =================================
 

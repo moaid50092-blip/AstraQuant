@@ -12,19 +12,34 @@ from trade_lifecycle.lifecycle_profiles import (
 class TradeManager:
 
     """
-    Passive lifecycle orchestration layer.
+    Passive execution lifecycle orchestration layer.
 
     Responsibilities:
     - Track active trades
     - Route lifecycle evaluation
-    - Maintain trade continuity
-    - Coordinate lifecycle progression
+    - Maintain lifecycle continuity
+    - Coordinate execution state progression
+    - Preserve runtime lifecycle integrity
 
     Important:
     - This layer is NOT a behavioral interpreter
     - This layer is NOT a market intelligence engine
-    - This layer should remain execution-oriented
-    - Behavioral semantics must remain external
+    - This layer is NOT a semantic classifier
+    - This layer is NOT a predictive continuity layer
+    - Behavioral interpretation must remain external
+
+    Architectural Boundary:
+    This layer MUST remain:
+    - execution-oriented
+    - lifecycle-coordinated
+    - runtime deterministic
+    - observer-neutral
+
+    This layer MUST NOT evolve into:
+    - behavioral continuity engine
+    - adaptive execution layer
+    - semantic predictor
+    - market intelligence component
     """
 
     # ==================================================
@@ -152,6 +167,15 @@ class TradeManager:
         # 🔥 PROFILE
         # ==============================================
 
+        """
+        Lifecycle profiles remain execution heuristics.
+
+        Important:
+        - NOT behavioral intelligence
+        - NOT continuity truth
+        - NOT market structure interpretation
+        """
+
         profile = get_lifecycle_profile(
             trade.trade_type
         )
@@ -205,6 +229,9 @@ class TradeManager:
         - NOT collapse detection
         - NOT entropy analysis
         - NOT continuity intelligence
+
+        This layer tracks execution-oriented
+        lifecycle pressure heuristics only.
         """
 
         should_watch = (
@@ -238,6 +265,11 @@ class TradeManager:
                     3
                 ),
 
+            # ==========================================
+            # Heuristic runtime visibility only
+            # NOT behavioral truth
+            # ==========================================
+
             "continuity_pressure":
                 round(
                     trade.deterioration_score,
@@ -265,7 +297,10 @@ class TradeManager:
         Important:
         - Confirmation logic remains heuristic
         - Does NOT represent behavioral truth
-        - Does NOT imply real structural collapse
+        - Does NOT imply structural collapse
+        - Does NOT imply continuity invalidation
+
+        This remains runtime execution coordination only.
         """
 
         should_exit = (
@@ -330,7 +365,7 @@ class TradeManager:
     ):
 
         """
-        Runtime lifecycle recovery tracking.
+        Runtime lifecycle stabilization tracking.
 
         Important:
         - Recovery here means:
@@ -340,6 +375,7 @@ class TradeManager:
           market recovery truth
           structural restoration
           continuity certainty
+          predictive stabilization
         """
 
         if previous_state != "ACTIVE":
@@ -379,6 +415,38 @@ class TradeManager:
         })
 
     # ==================================================
+    # 🔥 LIFECYCLE VISIBILITY LOSS
+    # ==================================================
+
+    def _apply_visibility_loss_pressure(
+        self,
+        trade
+    ):
+
+        """
+        Runtime continuity visibility degradation.
+
+        Important:
+        Missing visibility currently represents:
+        temporary lifecycle visibility loss only.
+
+        This does NOT imply:
+        - structural invalidation
+        - continuity collapse
+        - entropy dominance
+        - behavioral decay
+
+        This method exists to preserve:
+        - lifecycle ownership isolation
+        - mutation boundaries
+        - runtime determinism
+        """
+
+        trade.consecutive_weak_cycles += 1
+
+        trade.deterioration_score += 0.01
+
+    # ==================================================
     # 🔥 MISSING SYMBOLS
     # ==================================================
 
@@ -393,12 +461,13 @@ class TradeManager:
 
         Important:
         Symbol disappearance currently represents:
-        continuity visibility loss
+        continuity visibility loss only.
 
         NOT:
         guaranteed collapse
         guaranteed entropy
         guaranteed invalidation
+        guaranteed structural failure
         """
 
         for (
@@ -412,18 +481,12 @@ class TradeManager:
                 continue
 
             # ==========================================
-            # 🔥 SOFT CONTINUITY PRESSURE
+            # 🔥 SOFT VISIBILITY PRESSURE
             # ==========================================
 
-            """
-            NOTE:
-            This remains heuristic lifecycle pressure,
-            NOT behavioral collapse detection.
-            """
-
-            trade.consecutive_weak_cycles += 1
-
-            trade.deterioration_score += 0.01
+            self._apply_visibility_loss_pressure(
+                trade
+            )
 
             # ==========================================
             # 🔥 PROFILE CHECK
@@ -501,6 +564,31 @@ class TradeManager:
             del self.active_trades[symbol]
 
     # ==================================================
+    # 🔥 EXPORT HELPERS
+    # ==================================================
+
+    def _export_trade_state(
+        self,
+        trade
+    ):
+
+        """
+        Export isolation boundary.
+
+        Important:
+        Exported lifecycle state must remain:
+        - observer-safe
+        - execution-isolated
+        - non-authoritative
+        - non-semantic
+
+        Observer layers MUST NOT feed
+        exported state back into lifecycle decisions.
+        """
+
+        return trade.export_state()
+
+    # ==================================================
     # 🔥 EXPORT
     # ==================================================
 
@@ -508,12 +596,16 @@ class TradeManager:
 
         result = []
 
-        for trade in (
-            self.active_trades.values()
+        for symbol in sorted(
+            self.active_trades.keys()
         ):
 
+            trade = self.active_trades[symbol]
+
             result.append(
-                trade.export_state()
+                self._export_trade_state(
+                    trade
+                )
             )
 
         return result

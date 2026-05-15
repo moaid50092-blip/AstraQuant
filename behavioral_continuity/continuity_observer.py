@@ -13,10 +13,10 @@ class ContinuityObserver:
     Passive sequence-aware behavioral observer.
 
     Responsibilities:
-    - Observe continuity behavior across time
-    - Preserve longitudinal continuity structure
-    - Detect primitive continuity archetypes
-    - Produce descriptive continuity traces
+    - Preserve continuity topology across time
+    - Observe longitudinal sequence persistence
+    - Detect descriptive continuity archetypes
+    - Maintain passive behavioral visibility
 
     This layer does NOT:
     - predict outcomes
@@ -25,6 +25,21 @@ class ContinuityObserver:
     - modify probability
     - optimize behavior
     - generate adaptive intelligence
+    - provide semantic authority
+
+    Architectural Boundary:
+    This layer MUST remain:
+    - observational only
+    - sequence-first
+    - execution-neutral
+    - behaviorally isolated
+
+    This layer MUST NOT evolve into:
+    - prediction engine
+    - execution advisor
+    - scoring engine
+    - adaptive intelligence system
+    - market analysis authority
     """
 
     # ==================================================
@@ -52,6 +67,12 @@ class ContinuityObserver:
         - trade state
         - execution logic
         - lifecycle behavior
+
+        Observer outputs MUST NOT influence:
+        - execution decisions
+        - lifecycle heuristics
+        - probability weighting
+        - adaptive behavior
         """
 
         snapshot = ContinuitySnapshot(
@@ -60,20 +81,14 @@ class ContinuityObserver:
 
         trade_id = snapshot.trade_id
 
-        if trade_id not in self.snapshot_memory:
-
-            self.snapshot_memory[
-                trade_id
-            ] = deque(
-                maxlen=self.max_memory
-            )
-
-        self.snapshot_memory[
+        memory = self._get_trade_memory(
             trade_id
-        ].append(snapshot)
+        )
 
-        sequence = list(
-            self.snapshot_memory[trade_id]
+        memory.append(snapshot)
+
+        sequence = self._build_sequence_view(
+            memory
         )
 
         archetypes = (
@@ -81,6 +96,38 @@ class ContinuityObserver:
                 sequence
             )
         )
+
+        observational_descriptors = {
+
+            # ==========================================
+            # Passive descriptive visibility only
+            # ==========================================
+
+            "current_state":
+                snapshot.persistence_state,
+
+            "continuity_pressure":
+                snapshot.continuity_pressure,
+
+            "directional_memory":
+                snapshot.directional_memory
+        }
+
+        topology_visibility = {
+
+            # ==========================================
+            # Sequence-preserving topology visibility
+            # ==========================================
+
+            "latest_transition":
+                snapshot.latest_transition,
+
+            "transition_balance":
+                snapshot.transition_balance,
+
+            "transition_stability":
+                snapshot.transition_stability
+        }
 
         return {
 
@@ -101,7 +148,7 @@ class ContinuityObserver:
                 snapshot.trade_type,
 
             # ==========================================
-            # 🔥 CONTINUITY STATE
+            # 🔥 OBSERVATION STATE
             # ==========================================
 
             "cycles_alive":
@@ -111,7 +158,42 @@ class ContinuityObserver:
                 len(sequence),
 
             # ==========================================
-            # 🔥 RAW CONTINUITY
+            # 🔥 TOPOLOGY VISIBILITY
+            # ==========================================
+
+            "topology_visibility":
+                topology_visibility,
+
+            # ==========================================
+            # 🔥 OBSERVATIONAL DESCRIPTORS
+            # ==========================================
+
+            "observational_descriptors":
+                observational_descriptors,
+
+            # ==========================================
+            # 🔥 ARCHETYPAL DESCRIPTORS
+            # ==========================================
+
+            """
+            Archetypes are:
+            - descriptive topology labels only
+            - non-authoritative
+            - non-predictive
+            - execution-neutral
+
+            They MUST NEVER become:
+            - signals
+            - execution triggers
+            - trade quality scores
+            - continuation probability engines
+            """
+
+            "archetypes":
+                archetypes,
+
+            # ==========================================
+            # 🔥 LEGACY COMPATIBILITY
             # ==========================================
 
             "latest_transition":
@@ -123,10 +205,6 @@ class ContinuityObserver:
             "transition_stability":
                 snapshot.transition_stability,
 
-            # ==========================================
-            # 🔥 DESCRIPTIVE CONTINUITY
-            # ==========================================
-
             "current_state":
                 snapshot.persistence_state,
 
@@ -134,15 +212,70 @@ class ContinuityObserver:
                 snapshot.continuity_pressure,
 
             "directional_memory":
-                snapshot.directional_memory,
-
-            # ==========================================
-            # 🔥 ARCHETYPES
-            # ==========================================
-
-            "archetypes":
-                archetypes
+                snapshot.directional_memory
         }
+
+    # ==================================================
+    # 🔥 MEMORY HELPERS
+    # ==================================================
+
+    def _get_trade_memory(
+        self,
+        trade_id
+    ):
+
+        """
+        Runtime-safe sequence memory retrieval.
+
+        Important:
+        Memory depth preservation exists to:
+        - preserve temporal continuity rhythm
+        - preserve topology visibility
+        - avoid scalar-only compression
+
+        Memory optimization MUST NOT:
+        - aggressively collapse history
+        - flatten sequence structure
+        - remove continuity rhythm visibility
+        """
+
+        if trade_id not in self.snapshot_memory:
+
+            self.snapshot_memory[
+                trade_id
+            ] = deque(
+                maxlen=self.max_memory
+            )
+
+        return self.snapshot_memory[
+            trade_id
+        ]
+
+    # ==================================================
+    # 🔥 BUILD SEQUENCE VIEW
+    # ==================================================
+
+    def _build_sequence_view(
+        self,
+        memory
+    ):
+
+        """
+        Builds a normalized sequence view.
+
+        Important:
+        Sequence view remains:
+        - passive
+        - descriptive
+        - topology-preserving
+
+        NOT:
+        - predictive
+        - adaptive
+        - execution-oriented
+        """
+
+        return list(memory)
 
     # ==================================================
     # 🔥 ARCHETYPE DETECTION
@@ -159,9 +292,16 @@ class ContinuityObserver:
         - predictions
         - classifications of truth
         - execution signals
+        - trade quality metrics
 
         They are:
         descriptive continuity topologies only.
+
+        Archetypes MUST remain:
+        - observational
+        - non-authoritative
+        - sequence-derived
+        - execution-neutral
         """
 
         archetypes = []
@@ -204,7 +344,7 @@ class ContinuityObserver:
                 "ENTROPY_REABSORPTION"
             )
 
-        return archetypes
+        return list(archetypes)
 
     # ==================================================
     # 🔥 STRESSED PERSISTENCE
@@ -217,10 +357,12 @@ class ContinuityObserver:
 
         """
         Observes:
-        continuity surviving under pressure.
+        continuity remaining visible under
+        elevated descriptive pressure conditions.
 
         Important:
         pressure != collapse
+        fragmentation != invalidation
         """
 
         recent = sequence[-5:]
@@ -278,8 +420,11 @@ class ContinuityObserver:
 
         """
         Observes:
-        recovery memory surviving across
-        multiple continuity transitions.
+        descriptive recovery visibility surviving
+        across multiple continuity transitions.
+
+        Important:
+        recovery visibility != structural certainty
         """
 
         recent = sequence[-5:]
@@ -332,10 +477,12 @@ class ContinuityObserver:
 
         """
         Observes:
-        continuity weakening across time.
+        descriptive continuity weakening visibility
+        across temporal sequence progression.
 
         Important:
         weakening != guaranteed collapse
+        instability != invalidation
         """
 
         recent = sequence[-6:]
@@ -387,8 +534,11 @@ class ContinuityObserver:
 
         """
         Observes:
-        continuity surviving despite
-        unstable sequence topology.
+        continuity remaining visible despite
+        unstable descriptive sequence topology.
+
+        Important:
+        fragmentation != structural failure
         """
 
         recent = sequence[-6:]
@@ -457,8 +607,14 @@ class ContinuityObserver:
 
         """
         Observes:
-        continuity dissolving back into
-        unstable entropy conditions.
+        continuity visibility dissolving back into
+        unstable descriptive topology conditions.
+
+        Important:
+        This remains:
+        - observational only
+        - non-predictive
+        - non-authoritative
         """
 
         recent = sequence[-6:]
@@ -512,6 +668,15 @@ class ContinuityObserver:
         trade_id
     ):
 
+        """
+        Passive sequence export only.
+
+        Exported observer state MUST NOT:
+        - influence execution
+        - alter lifecycle heuristics
+        - become adaptive inputs
+        """
+
         if (
             trade_id
             not in self.snapshot_memory
@@ -535,6 +700,19 @@ class ContinuityObserver:
         self,
         active_trade_ids
     ):
+
+        """
+        Runtime-safe observer memory cleanup.
+
+        Important:
+        Cleanup exists for:
+        - memory safety
+        - lifecycle synchronization
+
+        NOT:
+        - topology optimization
+        - behavioral filtering
+        """
 
         removable = []
 

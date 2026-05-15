@@ -52,6 +52,30 @@ class ContinuityTraceLogger:
             time.gmtime(current_time)
         )
 
+        # ==============================================
+        # 🔥 CONTINUITY EVOLUTION VISIBILITY
+        # ==============================================
+
+        evolution_phase = observation.get(
+            "evolution_phase",
+            "TRANSITIONAL"
+        )
+
+        continuation_status = observation.get(
+            "continuation_status",
+            "ACTIVE"
+        )
+
+        structural_drift = observation.get(
+            "structural_drift",
+            "STABLE"
+        )
+
+        behavioral_commentary = observation.get(
+            "behavioral_commentary",
+            "ROTATIONAL RETENTION HOLDING"
+        )
+
         semantic_trace = {
 
             # ==========================================
@@ -107,6 +131,22 @@ class ContinuityTraceLogger:
                 observation.get(
                     "continuity_pressure"
                 ),
+
+            # ==========================================
+            # 🔥 HIGHER-ORDER EVOLUTION
+            # ==========================================
+
+            "evolution_phase":
+                evolution_phase,
+
+            "continuation_status":
+                continuation_status,
+
+            "structural_drift":
+                structural_drift,
+
+            "behavioral_commentary":
+                behavioral_commentary,
 
             # ==========================================
             # 🔥 ARCHETYPES
@@ -166,6 +206,26 @@ class ContinuityTraceLogger:
             0
         )
 
+        evolution_phase = observation.get(
+            "evolution_phase",
+            "TRANSITIONAL"
+        )
+
+        continuation_status = observation.get(
+            "continuation_status",
+            "ACTIVE"
+        )
+
+        structural_drift = observation.get(
+            "structural_drift",
+            "STABLE"
+        )
+
+        behavioral_commentary = observation.get(
+            "behavioral_commentary",
+            "ROTATIONAL RETENTION HOLDING"
+        )
+
         # ==============================================
         # 🔥 ARCHETYPE TEXT
         # ==============================================
@@ -181,8 +241,7 @@ class ContinuityTraceLogger:
             archetype_text = (
                 "NO_DOMINANT_PATTERN"
             )
-
-        # ==============================================
+# ==============================================
         # 🔥 PRESSURE TEXT
         # ==============================================
 
@@ -219,7 +278,19 @@ class ContinuityTraceLogger:
 
             f"across {cycles_alive} cycles "
 
-            f"under {pressure_text}."
+            f"under {pressure_text}. "
+
+            f"Evolution phase: "
+            f"{evolution_phase}. "
+
+            f"Continuation status: "
+            f"{continuation_status}. "
+
+            f"Structural drift: "
+            f"{structural_drift}. "
+
+            f"Behavioral commentary: "
+            f"{behavioral_commentary}."
         )
 
         return summary
@@ -230,71 +301,30 @@ class ContinuityTraceLogger:
 
     def _persist_trace(
         self,
-        trace
+        semantic_trace
     ):
 
-        current_date = time.strftime(
-            "%Y-%m-%d",
-            time.gmtime()
+        symbol = semantic_trace.get(
+            "symbol",
+            "UNKNOWN"
         )
 
-        path = (
-            f"{self.base_path}/"
-            f"{current_date}.jsonl"
+        file_path = os.path.join(
+            self.base_path,
+            f"{symbol}.jsonl"
         )
 
         with open(
-            path,
+            file_path,
             "a",
             encoding="utf-8"
-        ) as f:
+        ) as trace_file:
 
-            f.write(
-                json.dumps(trace)
+            trace_file.write(
+                json.dumps(
+                    semantic_trace,
+                    ensure_ascii=False
+                )
             )
 
-            f.write("\n")
-
-    # ==================================================
-    # 🔥 EXPORT FRIENDLY VIEW
-    # ==================================================
-
-    def build_review_view(
-        self,
-        traces
-    ):
-
-        review = []
-
-        for trace in traces:
-
-            review.append({
-
-                "datetime":
-                    trace.get(
-                        "datetime"
-                    ),
-
-                "symbol":
-                    trace.get(
-                        "symbol"
-                    ),
-
-                "archetypes":
-                    trace.get(
-                        "archetypes",
-                        []
-                    ),
-
-                "state":
-                    trace.get(
-                        "current_state"
-                    ),
-
-                "summary":
-                    trace.get(
-                        "semantic_summary"
-                    )
-            })
-
-        return review
+            trace_file.write("\n")

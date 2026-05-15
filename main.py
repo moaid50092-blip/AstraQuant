@@ -51,6 +51,61 @@ from observability.tactical_memory_sink import (
 
 
 # =====================================================
+# 🔥 RUNTIME TIMING
+# =====================================================
+
+CYCLE_INTERVAL_SECONDS = 60
+
+# Small fixed synchronization buffer
+# Prevents partial candle reads
+# without introducing adaptive timing.
+CANDLE_SYNC_BUFFER_SECONDS = 0.5
+
+
+def get_cycle_epoch(
+    timestamp=None,
+    interval_seconds=CYCLE_INTERVAL_SECONDS
+):
+
+    if timestamp is None:
+
+        timestamp = time.time()
+
+    return int(
+        timestamp // interval_seconds
+    )
+
+
+def wait_for_next_cycle(
+    interval_seconds=CYCLE_INTERVAL_SECONDS
+):
+
+    now = time.time()
+
+    next_boundary = (
+        (
+            int(now // interval_seconds)
+            + 1
+        ) * interval_seconds
+    )
+
+    sleep_seconds = max(
+        next_boundary - now,
+        0
+    )
+
+    time.sleep(sleep_seconds)
+
+    # =========================================
+    # 🔥 RUNTIME STABILIZATION BUFFER
+    # =========================================
+
+    time.sleep(
+        CANDLE_SYNC_BUFFER_SECONDS
+    )
+
+
+# =====================================================
 # 🔥 MARKET STATE ENGINE (Production Grade)
 # =====================================================
 
@@ -313,8 +368,7 @@ def render_signal(
                 momentum_dir=direction
             )
         )
-
-    # =========================================
+# =========================================
     # 🔥 STRENGTH LABEL
     # =========================================
 
@@ -655,17 +709,42 @@ def run_engine():
 
     tactical_memory = TacticalMemorySink()
 
+    # =================================================
+    # 🔥 RUNTIME STATE
+    # =================================================
+
+    last_processed_cycle = None
+
     print(
         "\n🚀 AstraQuant Engine Started...\n"
     )
 
-    TARGET_CYCLE_SECONDS = 60
+    # =================================================
+    # 🔥 INITIAL SYNCHRONIZATION
+    # =================================================
+
+    wait_for_next_cycle()
 
     while True:
 
         try:
 
-            start_time = time.time()
+            current_cycle = get_cycle_epoch()
+# =====================================
+            # 🔥 DUPLICATE CYCLE PROTECTION
+            # =====================================
+
+            if current_cycle == last_processed_cycle:
+
+                wait_for_next_cycle()
+                continue
+
+            last_processed_cycle = current_cycle
+
+            cycle_timestamp = time.strftime(
+                '%H:%M:%S',
+                time.localtime()
+            )
 
             # =====================================
             # 🔥 LOAD DATA
@@ -687,8 +766,7 @@ def run_engine():
                     "\n⚠️ No market data loaded.\n"
                 )
 
-                time.sleep(5)
-
+                wait_for_next_cycle()
                 continue
 
             # =====================================
@@ -735,11 +813,18 @@ def run_engine():
             # trade_id -> observer result
             continuity_runtime_map = {}
 
+            # symbol -> latest trade_id
+            symbol_trade_map = {}
+
             for trade_state in active_trades:
 
-                # =============================================
-                # 🔥 OBSERVE TRADE DIRECTLY
-                # =============================================
+                trade_id = trade_state.get(
+                    "trade_id"
+                )
+
+                symbol = trade_state.get(
+                    "symbol"
+                )
 
                 observer_result = (
                     continuity_observer.observe(
@@ -747,11 +832,18 @@ def run_engine():
                     )
                 )
 
-                if observer_result:
+                if (
+                    trade_id
+                    and observer_result
+                ):
 
                     continuity_runtime_map[
-                        trade_state.get("symbol")
+                        trade_id
                     ] = observer_result
+
+                    symbol_trade_map[
+                        symbol
+                    ] = trade_id
 
                     continuity_logger.store(
                         observer_result
@@ -777,7 +869,7 @@ def run_engine():
 
             print(
                 f"🕒 Cycle @ "
-                f"{time.strftime('%H:%M:%S')}"
+                f"{cycle_timestamp}"
             )
 
             print(
@@ -840,11 +932,25 @@ def run_engine():
                 # 🔥 CONTINUITY OVERLAY
                 # =================================
 
-                continuity_data = (
-                    continuity_runtime_map.get(
-                        signal.get("symbol")
+                signal_symbol = signal.get(
+                    "symbol"
+                )
+
+                related_trade_id = (
+                    symbol_trade_map.get(
+                        signal_symbol
                     )
                 )
+
+                continuity_data = None
+
+                if related_trade_id:
+
+                    continuity_data = (
+                        continuity_runtime_map.get(
+                            related_trade_id
+                        )
+                    )
 
                 if continuity_data:
 
@@ -927,8 +1033,7 @@ def run_engine():
                             f"   ↳ ARCHETYPES: "
                             f"{', '.join(archetypes)}"
                         )
-
-                # =================================
+# =================================
                 # 🔥 TACTICAL MEMORY EVENT
                 # =================================
 
@@ -1058,30 +1163,18 @@ def run_engine():
             )
 
             # =====================================
-            # 🔥 SLEEP CONTROL
+            # 🔥 NEXT CYCLE SYNC
             # =====================================
 
-            elapsed = (
-                time.time()
-                - start_time
-            )
-
-            sleep_time = max(
-                TARGET_CYCLE_SECONDS
-                - elapsed,
-                5
-            )
-
             print(
-                f"\n⏳ Next cycle in "
-                f"{round(sleep_time, 1)}s"
+                "\n⏳ Waiting for next candle synchronization"
             )
 
             print(
                 "==============================\n"
             )
 
-            time.sleep(sleep_time)
+            wait_for_next_cycle()
 
         except KeyboardInterrupt:
 
@@ -1098,11 +1191,10 @@ def run_engine():
             traceback.print_exc()
 
             print(
-                "\n🔁 Restarting cycle "
-                "in 5 seconds...\n"
+                "\n🔁 Waiting for next synchronized cycle...\n"
             )
 
-            time.sleep(5)
+            wait_for_next_cycle()
 
 
 # =====================================================

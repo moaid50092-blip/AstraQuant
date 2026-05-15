@@ -28,6 +28,19 @@ class TradeObject:
     - NOT behavioral intelligence
     - NOT predictive semantics
     - NOT adaptive logic
+
+    Architectural Boundary:
+    This object MUST remain:
+    - execution-oriented
+    - continuity-preserving
+    - sequence-aware
+    - behaviorally neutral
+
+    This object MUST NOT evolve into:
+    - semantic interpreter
+    - behavioral predictor
+    - adaptive continuity engine
+    - execution optimizer
     """
 
     # ==================================================
@@ -36,9 +49,11 @@ class TradeObject:
 
     def __init__(self, signal):
 
+        init_timestamp = time.time()
+
         self.trade_id = (
             f"{signal.get('symbol', 'UNKNOWN')}_"
-            f"{int(time.time())}"
+            f"{int(init_timestamp)}"
         )
 
         self.symbol = signal.get("symbol")
@@ -60,9 +75,9 @@ class TradeObject:
 
         self.state = "ACTIVE"
 
-        self.created_at = time.time()
+        self.created_at = init_timestamp
 
-        self.last_update = time.time()
+        self.last_update = init_timestamp
 
         self.cycles_alive = 0
 
@@ -72,9 +87,9 @@ class TradeObject:
 
         """
         NOTE:
-        This remains for runtime compatibility only.
+        Preserved for runtime compatibility only.
 
-        It is currently a lifecycle heuristic,
+        This is currently a lifecycle heuristic,
         NOT a behavioral truth descriptor.
         """
 
@@ -109,10 +124,13 @@ class TradeObject:
         deterioration_score currently represents
         continuity pressure accumulation.
 
-        It does NOT necessarily imply:
-        collapse
-        failure
-        entropy takeover
+        It does NOT imply:
+        - collapse certainty
+        - structural failure
+        - market truth
+        - behavioral certainty
+
+        This remains a raw lifecycle heuristic.
         """
 
         self.deterioration_score = 0.0
@@ -134,6 +152,7 @@ class TradeObject:
 
         Important:
         - sequence-first
+        - topology-preserving
         - non-semantic
         - non-predictive
         - no execution authority
@@ -142,7 +161,7 @@ class TradeObject:
         self.continuity_sequence = []
 
         # ==========================================
-        # 🔥 STRUCTURE
+        # 🔥 STRUCTURE MEMORY
         # ==========================================
 
         self.last_trend = signal.get(
@@ -160,7 +179,7 @@ class TradeObject:
             "LOW"
         )
 
-        self.last_reason = (
+        self.last_reason = list(
             signal.get("reasons", [])
         )
 
@@ -187,20 +206,26 @@ class TradeObject:
         # ==========================================
 
         """
-        Passive semantic trace storage.
+        Passive observability trace storage.
 
         Important:
         - Read-only
         - No execution authority
         - No lifecycle mutation
         - No adaptive behavior
+        - No observer influence on execution
         """
 
         self.behavioral_trace = []
 
-        self._store_snapshot(signal)
+        self._store_snapshot(
+            signal,
+            init_timestamp
+        )
 
-        self._store_behavioral_trace()
+        self._store_behavioral_trace(
+            init_timestamp
+        )
 
     # ==================================================
     # 🔥 TYPE DETECTION
@@ -217,12 +242,16 @@ class TradeObject:
     # 🔥 SNAPSHOT STORAGE
     # ==================================================
 
-    def _store_snapshot(self, signal):
+    def _store_snapshot(
+        self,
+        signal,
+        timestamp
+    ):
 
         snapshot = {
 
             "timestamp":
-                time.time(),
+                timestamp,
 
             "probability":
                 round(
@@ -273,6 +302,7 @@ class TradeObject:
 
         self.history.append(snapshot)
 
+        # prevent uncontrolled growth
         self.history = self.history[-25:]
 
     # ==================================================
@@ -281,7 +311,9 @@ class TradeObject:
 
     def _store_continuity_transition(
         self,
-        probability_delta
+        probability_delta,
+        previous_probability,
+        timestamp
     ):
 
         if probability_delta > 0.015:
@@ -299,7 +331,7 @@ class TradeObject:
         continuity_event = {
 
             "timestamp":
-                time.time(),
+                timestamp,
 
             "cycle":
                 self.cycles_alive,
@@ -307,16 +339,28 @@ class TradeObject:
             "transition":
                 transition,
 
-            "probability_delta":
+            "previous_probability":
                 round(
-                    probability_delta,
-                    4
+                    previous_probability,
+                    3
                 ),
 
             "current_probability":
                 round(
                     self.current_probability,
                     3
+                ),
+
+            "probability_delta":
+                round(
+                    probability_delta,
+                    4
+                ),
+
+            "delta_magnitude":
+                round(
+                    abs(probability_delta),
+                    4
                 )
         }
 
@@ -333,19 +377,20 @@ class TradeObject:
     # 🔥 BEHAVIORAL TRACE
     # ==================================================
 
-    def _store_behavioral_trace(self):
-
-        current_timestamp = time.time()
+    def _store_behavioral_trace(
+        self,
+        timestamp
+    ):
 
         trace = {
 
             "timestamp":
-                current_timestamp,
+                timestamp,
 
             "datetime":
                 time.strftime(
                     "%Y-%m-%d %H:%M:%S",
-                    time.gmtime(current_timestamp)
+                    time.gmtime(timestamp)
                 ),
 
             "trade_id":
@@ -397,13 +442,15 @@ class TradeObject:
                 self.exit_reason
         }
 
-        self.behavioral_trace.append(trace)
+        self.behavioral_trace.append(
+            trace
+        )
 
         # ==========================================
         # 🔥 PASSIVE TRACE PERSISTENCE
         # ==========================================
 
-        append_trace(trace)
+        append_trace(dict(trace))
 
         # prevent uncontrolled growth
         self.behavioral_trace = (
@@ -416,7 +463,9 @@ class TradeObject:
 
     def update(self, signal):
 
-        self.last_update = time.time()
+        cycle_timestamp = time.time()
+
+        self.last_update = cycle_timestamp
 
         self.cycles_alive += 1
 
@@ -452,7 +501,9 @@ class TradeObject:
         )
 
         self._store_continuity_transition(
-            delta
+            probability_delta=delta,
+            previous_probability=previous_probability,
+            timestamp=cycle_timestamp
         )
 
         # ==========================================
@@ -518,9 +569,11 @@ class TradeObject:
             self.last_confidence
         )
 
-        self.last_reason = signal.get(
-            "reasons",
-            self.last_reason
+        self.last_reason = list(
+            signal.get(
+                "reasons",
+                self.last_reason
+            )
         )
 
         # ==========================================
@@ -533,13 +586,18 @@ class TradeObject:
         # 🔥 STORE SNAPSHOT
         # ==========================================
 
-        self._store_snapshot(signal)
+        self._store_snapshot(
+            signal,
+            cycle_timestamp
+        )
 
         # ==========================================
         # 🔥 STORE OBSERVABILITY TRACE
         # ==========================================
 
-        self._store_behavioral_trace()
+        self._store_behavioral_trace(
+            cycle_timestamp
+        )
 
     # ==================================================
     # 🔥 EXIT WATCH
@@ -554,6 +612,11 @@ class TradeObject:
         This remains execution-oriented logic
         and should eventually migrate outside
         raw lifecycle continuity storage.
+
+        This logic MUST NOT be interpreted as:
+        - market truth
+        - predictive intelligence
+        - behavioral certainty
         """
 
         decision = signal.get(
@@ -610,10 +673,105 @@ class TradeObject:
         )
 
     # ==================================================
+    # 🔥 EXPORT HELPERS
+    # ==================================================
+
+    def _export_continuity_sequence(self):
+
+        return [
+            dict(event)
+            for event in self.continuity_sequence
+        ]
+
+    def _export_structure_memory(self):
+
+        return {
+
+            "trend":
+                self.last_trend,
+
+            "setup":
+                self.last_setup,
+
+            "confidence":
+                self.last_confidence,
+
+            "reasons":
+                list(self.last_reason)
+        }
+
+    # ==================================================
     # 🔥 EXPORT
     # ==================================================
 
     def export_state(self):
+
+        continuity_primitives = {
+
+            "initial_probability":
+                round(
+                    self.initial_probability,
+                    3
+                ),
+
+            "current_probability":
+                round(
+                    self.current_probability,
+                    3
+                ),
+
+            "highest_probability":
+                round(
+                    self.highest_probability,
+                    3
+                ),
+
+            "lowest_probability":
+                round(
+                    self.lowest_probability,
+                    3
+                ),
+
+            "deterioration_score":
+                round(
+                    self.deterioration_score,
+                    3
+                ),
+
+            "warning_count":
+                self.warning_count,
+
+            "recovery_count":
+                self.recovery_count,
+
+            "weak_cycles":
+                self.consecutive_weak_cycles,
+
+            "recovery_cycles":
+                self.consecutive_recovery_cycles,
+
+            "continuity_sequence":
+                self._export_continuity_sequence()
+        }
+
+        structure_memory = (
+            self._export_structure_memory()
+        )
+
+        execution_state = {
+
+            "exit_pending":
+                self.exit_pending,
+
+            "exit_confirmed":
+                self.exit_confirmed,
+
+            "exit_reason":
+                self.exit_reason,
+
+            "continuation_mature":
+                self.continuation_mature
+        }
 
         return {
 
@@ -656,91 +814,22 @@ class TradeObject:
             # 🔥 RAW CONTINUITY PRIMITIVES
             # ======================================
 
-            "continuity_primitives": {
-
-                "initial_probability":
-                    round(
-                        self.initial_probability,
-                        3
-                    ),
-
-                "current_probability":
-                    round(
-                        self.current_probability,
-                        3
-                    ),
-
-                "highest_probability":
-                    round(
-                        self.highest_probability,
-                        3
-                    ),
-
-                "lowest_probability":
-                    round(
-                        self.lowest_probability,
-                        3
-                    ),
-
-                "deterioration_score":
-                    round(
-                        self.deterioration_score,
-                        3
-                    ),
-
-                "warning_count":
-                    self.warning_count,
-
-                "recovery_count":
-                    self.recovery_count,
-
-                "weak_cycles":
-                    self.consecutive_weak_cycles,
-
-                "recovery_cycles":
-                    self.consecutive_recovery_cycles,
-
-                "continuity_sequence":
-                    self.continuity_sequence
-            },
+            "continuity_primitives":
+                continuity_primitives,
 
             # ======================================
             # 🔥 STRUCTURE MEMORY
             # ======================================
 
-            "structure_memory": {
-
-                "trend":
-                    self.last_trend,
-
-                "setup":
-                    self.last_setup,
-
-                "confidence":
-                    self.last_confidence,
-
-                "reasons":
-                    self.last_reason
-            },
+            "structure_memory":
+                structure_memory,
 
             # ======================================
             # 🔥 EXECUTION STATE
             # ======================================
 
-            "execution_state": {
-
-                "exit_pending":
-                    self.exit_pending,
-
-                "exit_confirmed":
-                    self.exit_confirmed,
-
-                "exit_reason":
-                    self.exit_reason,
-
-                "continuation_mature":
-                    self.continuation_mature
-            },
+            "execution_state":
+                execution_state,
 
             # ======================================
             # 🔥 LEGACY COMPATIBILITY
@@ -806,7 +895,7 @@ class TradeObject:
                 self.last_confidence,
 
             "reasons":
-                self.last_reason,
+                list(self.last_reason),
 
             "exit_pending":
                 self.exit_pending,

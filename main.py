@@ -25,10 +25,6 @@ from trade_lifecycle.lifecycle_renderer import (
 # 🔥 BEHAVIORAL CONTINUITY
 # =====================================================
 
-from behavioral_continuity.continuity_snapshot import (
-    ContinuitySnapshot
-)
-
 from behavioral_continuity.continuity_observer import (
     ContinuityObserver
 )
@@ -499,10 +495,6 @@ def render_signal(
             )
         )
 
-        # =====================================
-        # 🔥 CONTEXT OVERLAY
-        # =====================================
-
         if rotation == "Stable":
 
             context_overlay = (
@@ -520,10 +512,6 @@ def render_signal(
             context_overlay = (
                 "TRANSITIONAL ROTATION"
             )
-
-        # =====================================
-        # 🔥 TEXTURE OVERLAY
-        # =====================================
 
         if behavior == "Noisy":
 
@@ -543,10 +531,6 @@ def render_signal(
 
             texture_overlay = "MIXED"
 
-        # =====================================
-        # 🔥 PROFILE OVERLAY
-        # =====================================
-
         if behavior == "Reactive":
 
             profile_overlay = (
@@ -564,10 +548,6 @@ def render_signal(
             profile_overlay = (
                 "LOW STRUCTURAL CLARITY"
             )
-
-        # =====================================
-        # 🔥 RUNTIME OVERLAY
-        # =====================================
 
         print(
             f"   ↳ CONTEXT: "
@@ -752,30 +732,29 @@ def run_engine():
                 trade_manager.export_active_trades()
             )
 
+            # trade_id -> observer result
+            continuity_runtime_map = {}
+
             for trade_state in active_trades:
 
-                snapshot = (
-                    ContinuitySnapshot(
+                # =============================================
+                # 🔥 OBSERVE TRADE DIRECTLY
+                # =============================================
+
+                observer_result = (
+                    continuity_observer.observe(
                         trade_state
                     )
                 )
 
-                continuity_observer.observe(
-                    snapshot
-                )
+                if observer_result:
 
-                semantic_trace = (
-                    continuity_observer.export_latest_trace(
-                        trade_state.get(
-                            "trade_id"
-                        )
-                    )
-                )
-
-                if semantic_trace:
+                    continuity_runtime_map[
+                        trade_state.get("symbol")
+                    ] = observer_result
 
                     continuity_logger.store(
-                        semantic_trace
+                        observer_result
                     )
 
             # =====================================
@@ -856,6 +835,98 @@ def run_engine():
                     signal,
                     range_interpreter
                 )
+
+                # =================================
+                # 🔥 CONTINUITY OVERLAY
+                # =================================
+
+                continuity_data = (
+                    continuity_runtime_map.get(
+                        signal.get("symbol")
+                    )
+                )
+
+                if continuity_data:
+
+                    current_state = (
+                        continuity_data.get(
+                            "current_state",
+                            "UNKNOWN"
+                        )
+                    )
+
+                    pressure = (
+                        continuity_data.get(
+                            "continuity_pressure",
+                            0
+                        )
+                    )
+
+                    memory = (
+                        continuity_data.get(
+                            "directional_memory",
+                            "UNKNOWN"
+                        )
+                    )
+
+                    transition_stability = (
+                        continuity_data.get(
+                            "transition_stability",
+                            "UNKNOWN"
+                        )
+                    )
+
+                    latest_transition = (
+                        continuity_data.get(
+                            "latest_transition",
+                            "UNKNOWN"
+                        )
+                    )
+
+                    sequence_depth = (
+                        continuity_data.get(
+                            "sequence_depth",
+                            0
+                        )
+                    )
+
+                    print(
+                        f"   ↳ CONTINUITY: "
+                        f"{current_state}"
+                    )
+
+                    print(
+                        f"   ↳ PRESSURE: "
+                        f"{round(pressure, 3)}"
+                    )
+
+                    print(
+                        f"   ↳ MEMORY: "
+                        f"{memory}"
+                    )
+
+                    print(
+                        f"   ↳ TRANSITIONS: "
+                        f"{transition_stability}"
+                        f" / {latest_transition}"
+                    )
+
+                    print(
+                        f"   ↳ SEQUENCE DEPTH: "
+                        f"{sequence_depth}"
+                    )
+
+                    archetypes = continuity_data.get(
+                        "archetypes",
+                        []
+                    )
+
+                    if archetypes:
+
+                        print(
+                            f"   ↳ ARCHETYPES: "
+                            f"{', '.join(archetypes)}"
+                        )
 
                 # =================================
                 # 🔥 TACTICAL MEMORY EVENT

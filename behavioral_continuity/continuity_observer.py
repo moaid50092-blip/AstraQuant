@@ -1,5 +1,3 @@
-# behavioral_continuity/continuity_observer.py
-
 from collections import deque
 
 from behavioral_continuity.continuity_snapshot import (
@@ -97,11 +95,26 @@ class ContinuityObserver:
             )
         )
 
-        observational_descriptors = {
+        # ==============================================
+        # 🔥 EVOLUTION VISIBILITY
+        # ==============================================
 
-            # ==========================================
-            # Passive descriptive visibility only
-            # ==========================================
+        evolution_visibility = {
+
+            "evolution_phase":
+                snapshot.evolution_phase,
+
+            "continuation_status":
+                snapshot.continuation_status,
+
+            "structural_drift":
+                snapshot.structural_drift,
+
+            "behavioral_commentary":
+                snapshot.behavioral_commentary
+        }
+
+        observational_descriptors = {
 
             "current_state":
                 snapshot.persistence_state,
@@ -110,14 +123,22 @@ class ContinuityObserver:
                 snapshot.continuity_pressure,
 
             "directional_memory":
-                snapshot.directional_memory
+                snapshot.directional_memory,
+
+            "evolution_phase":
+                snapshot.evolution_phase,
+
+            "continuation_status":
+                snapshot.continuation_status,
+
+            "structural_drift":
+                snapshot.structural_drift,
+
+            "behavioral_commentary":
+                snapshot.behavioral_commentary
         }
 
         topology_visibility = {
-
-            # ==========================================
-            # Sequence-preserving topology visibility
-            # ==========================================
 
             "latest_transition":
                 snapshot.latest_transition,
@@ -172,22 +193,15 @@ class ContinuityObserver:
                 observational_descriptors,
 
             # ==========================================
-            # 🔥 ARCHETYPAL DESCRIPTORS
+            # 🔥 EVOLUTION VISIBILITY
             # ==========================================
 
-            """
-            Archetypes are:
-            - descriptive topology labels only
-            - non-authoritative
-            - non-predictive
-            - execution-neutral
+            "evolution_visibility":
+                evolution_visibility,
 
-            They MUST NEVER become:
-            - signals
-            - execution triggers
-            - trade quality scores
-            - continuation probability engines
-            """
+            # ==========================================
+            # 🔥 ARCHETYPAL DESCRIPTORS
+            # ==========================================
 
             "archetypes":
                 archetypes,
@@ -212,7 +226,23 @@ class ContinuityObserver:
                 snapshot.continuity_pressure,
 
             "directional_memory":
-                snapshot.directional_memory
+                snapshot.directional_memory,
+
+            # ==========================================
+            # 🔥 EVOLUTION LEGACY VISIBILITY
+            # ==========================================
+
+            "evolution_phase":
+                snapshot.evolution_phase,
+
+            "continuation_status":
+                snapshot.continuation_status,
+
+            "structural_drift":
+                snapshot.structural_drift,
+
+            "behavioral_commentary":
+                snapshot.behavioral_commentary
         }
 
     # ==================================================
@@ -226,17 +256,6 @@ class ContinuityObserver:
 
         """
         Runtime-safe sequence memory retrieval.
-
-        Important:
-        Memory depth preservation exists to:
-        - preserve temporal continuity rhythm
-        - preserve topology visibility
-        - avoid scalar-only compression
-
-        Memory optimization MUST NOT:
-        - aggressively collapse history
-        - flatten sequence structure
-        - remove continuity rhythm visibility
         """
 
         if trade_id not in self.snapshot_memory:
@@ -262,22 +281,10 @@ class ContinuityObserver:
 
         """
         Builds a normalized sequence view.
-
-        Important:
-        Sequence view remains:
-        - passive
-        - descriptive
-        - topology-preserving
-
-        NOT:
-        - predictive
-        - adaptive
-        - execution-oriented
         """
 
         return list(memory)
-
-    # ==================================================
+# ==================================================
     # 🔥 ARCHETYPE DETECTION
     # ==================================================
 
@@ -287,21 +294,8 @@ class ContinuityObserver:
     ):
 
         """
-        Important:
-        Archetypes are NOT:
-        - predictions
-        - classifications of truth
-        - execution signals
-        - trade quality metrics
-
-        They are:
-        descriptive continuity topologies only.
-
-        Archetypes MUST remain:
-        - observational
-        - non-authoritative
-        - sequence-derived
-        - execution-neutral
+        Archetypes are descriptive continuity
+        topology labels only.
         """
 
         archetypes = []
@@ -354,16 +348,6 @@ class ContinuityObserver:
         self,
         sequence
     ):
-
-        """
-        Observes:
-        continuity remaining visible under
-        elevated descriptive pressure conditions.
-
-        Important:
-        pressure != collapse
-        fragmentation != invalidation
-        """
 
         recent = sequence[-5:]
 
@@ -418,15 +402,6 @@ class ContinuityObserver:
         sequence
     ):
 
-        """
-        Observes:
-        descriptive recovery visibility surviving
-        across multiple continuity transitions.
-
-        Important:
-        recovery visibility != structural certainty
-        """
-
         recent = sequence[-5:]
 
         recovery_presence = sum(
@@ -475,16 +450,6 @@ class ContinuityObserver:
         sequence
     ):
 
-        """
-        Observes:
-        descriptive continuity weakening visibility
-        across temporal sequence progression.
-
-        Important:
-        weakening != guaranteed collapse
-        instability != invalidation
-        """
-
         recent = sequence[-6:]
 
         increasing_pressure = (
@@ -531,15 +496,6 @@ class ContinuityObserver:
         self,
         sequence
     ):
-
-        """
-        Observes:
-        continuity remaining visible despite
-        unstable descriptive sequence topology.
-
-        Important:
-        fragmentation != structural failure
-        """
 
         recent = sequence[-6:]
 
@@ -595,8 +551,7 @@ class ContinuityObserver:
             and continuity_alive
             and fragmented_transition_presence
         )
-
-    # ==================================================
+# ==================================================
     # 🔥 ENTROPY REABSORPTION
     # ==================================================
 
@@ -604,18 +559,6 @@ class ContinuityObserver:
         self,
         sequence
     ):
-
-        """
-        Observes:
-        continuity visibility dissolving back into
-        unstable descriptive topology conditions.
-
-        Important:
-        This remains:
-        - observational only
-        - non-predictive
-        - non-authoritative
-        """
 
         recent = sequence[-6:]
 
@@ -670,11 +613,6 @@ class ContinuityObserver:
 
         """
         Passive sequence export only.
-
-        Exported observer state MUST NOT:
-        - influence execution
-        - alter lifecycle heuristics
-        - become adaptive inputs
         """
 
         if (
@@ -703,15 +641,6 @@ class ContinuityObserver:
 
         """
         Runtime-safe observer memory cleanup.
-
-        Important:
-        Cleanup exists for:
-        - memory safety
-        - lifecycle synchronization
-
-        NOT:
-        - topology optimization
-        - behavioral filtering
         """
 
         removable = []

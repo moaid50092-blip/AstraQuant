@@ -62,9 +62,57 @@ class ContextAnalyzerV2:
             seq[-1] - seq[0]
         ) / seq[0]
 
-        # حماية من noisy oscillation
-        if abs(directional_move) < 0.001:
-            return "range", float(strength)
+        move_abs = abs(directional_move)
+
+        # =============================================
+        # 🔥 NOISY OSCILLATION DETECTION
+        # =============================================
+
+        sign_flips = np.sum(
+            np.diff(np.sign(diffs)) != 0
+        )
+
+        flip_ratio = (
+            sign_flips / len(diffs)
+            if len(diffs) > 0
+            else 0
+        )
+
+        avg_move = np.mean(
+            np.abs(diffs)
+        )
+
+        net_efficiency = (
+            abs(seq[-1] - seq[0])
+            /
+            (np.sum(np.abs(diffs)) + 1e-9)
+        )
+
+        # 🔥 dead rotational churn
+        if move_abs < 0.001:
+            return "range", float(
+                max(0.25, strength * 0.7)
+            )
+
+        # 🔥 fragmented oscillation
+        if (
+            flip_ratio > 0.58
+            and net_efficiency < 0.42
+        ):
+            return "range", float(
+                max(0.3, strength * 0.72)
+            )
+
+        # 🔥 unstable directional structure
+        if (
+            avg_move > 0
+            and move_abs < (
+                avg_move * 1.8
+            ) / seq[0]
+        ):
+            return "range", float(
+                max(0.32, strength * 0.78)
+            )
 
         if up_ratio >= self.align_threshold:
             return "up", float(strength)
@@ -119,8 +167,8 @@ class ContextAnalyzerV2:
 
         if trend == "range":
 
-            # range لا نعاقبه بقوة
-            score = -weight * 0.12
+            # 🔥 fragmented/range penalty strengthened
+            score = -weight * 0.18
 
             return score, f"{layer_name} RANGE"
 
@@ -128,7 +176,7 @@ class ContextAnalyzerV2:
         # MISALIGN
         # ---------------------------------------------
 
-        score = -weight * 0.35
+        score = -weight * 0.48
 
         return score, f"{layer_name} MISALIGN"
 
@@ -143,19 +191,45 @@ class ContextAnalyzerV2:
         avg_vol
     ):
 
+        recent_high = np.max(highs[-10:])
+        recent_low = np.min(lows[-10:])
+
         recent_range = float(
-            np.max(highs[-10:])
-            -
-            np.min(lows[-10:])
+            recent_high - recent_low
         )
 
-        if recent_range > avg_vol * 1.5:
-            return 0.14, "STRONG BREAKOUT"
+        recent_close_position = (
+            highs[-1] - lows[-1]
+        )
 
-        if recent_range > avg_vol:
-            return 0.08, "VALID BREAKOUT"
+        breakout_efficiency = (
+            recent_range / (avg_vol + 1e-9)
+        )
 
-        return 0.03, "WEAK BREAKOUT"
+        # 🔥 weak expansion
+        if breakout_efficiency < 1.0:
+            return -0.03, "WEAK BREAKOUT"
+
+        # 🔥 chaotic breakout
+        if breakout_efficiency > 2.8:
+            return -0.04, "CHAOTIC EXPANSION"
+
+        # 🔥 exhaustion breakout
+        if (
+            recent_close_position
+            <
+            (avg_vol * 0.25)
+        ):
+            return -0.05, "BREAKOUT EXHAUSTION"
+
+        # 🔥 valid breakout
+        if breakout_efficiency > 1.7:
+            return 0.12, "STRONG BREAKOUT"
+
+        if breakout_efficiency > 1.25:
+            return 0.07, "VALID BREAKOUT"
+
+        return 0.02, "WEAK EXPANSION"
 
     # =================================================
     # 🔥 VOLATILITY FILTER
@@ -172,13 +246,36 @@ class ContextAnalyzerV2:
 
         ratio = vol / avg_vol
 
-        # سوق ميت
-        if ratio < 0.65:
-            return -0.1, "LOW VOLATILITY"
+        # =============================================
+        # 🔥 DEAD MARKET
+        # =============================================
 
-        # سوق نشط
-        if ratio > 1.4:
-            return 0.05, "EXPANSION"
+        if ratio < 0.58:
+            return -0.14, "DEAD MARKET"
+
+        # =============================================
+        # 🔥 HEALTHY EXPANSION
+        # =============================================
+
+        if (
+            ratio >= 1.05
+            and ratio <= 1.8
+        ):
+            return 0.06, "HEALTHY EXPANSION"
+
+        # =============================================
+        # 🔥 CHAOTIC VOLATILITY
+        # =============================================
+
+        if ratio > 2.2:
+            return -0.08, "CHAOTIC VOLATILITY"
+
+        # =============================================
+        # 🔥 OVERHEATED VOLATILITY
+        # =============================================
+
+        if ratio > 1.8:
+            return -0.03, "OVERHEATED EXPANSION"
 
         return 0.0, None
 
@@ -348,6 +445,14 @@ class ContextAnalyzerV2:
                 "GOOD MOMENTUM"
             )
 
+        elif momentum_strength < 0.48:
+
+            score -= 0.08
+
+            reasons.append(
+                "WEAK MOMENTUM"
+            )
+
         # =============================================
         # 🔥 ZONE INTELLIGENCE
         # =============================================
@@ -359,7 +464,7 @@ class ContextAnalyzerV2:
             and zone == "high"
         ):
 
-            score -= 0.12
+            score -= 0.14
 
             reasons.append(
                 "BUYING INTO RESISTANCE"
@@ -370,7 +475,7 @@ class ContextAnalyzerV2:
             and zone == "low"
         ):
 
-            score -= 0.12
+            score -= 0.14
 
             reasons.append(
                 "SELLING INTO SUPPORT"
@@ -381,7 +486,7 @@ class ContextAnalyzerV2:
             and zone == "low"
         ):
 
-            score += 0.05
+            score += 0.06
 
             reasons.append(
                 "GOOD BUY ZONE"
@@ -392,7 +497,7 @@ class ContextAnalyzerV2:
             and zone == "high"
         ):
 
-            score += 0.05
+            score += 0.06
 
             reasons.append(
                 "GOOD SELL ZONE"
@@ -444,6 +549,12 @@ class ContextAnalyzerV2:
             long_trend == momentum_dir
         ])
 
+        range_count = sum([
+            short_trend == "range",
+            mid_trend == "range",
+            long_trend == "range"
+        ])
+
         if aligned_count == 3:
 
             score += 0.08
@@ -452,12 +563,44 @@ class ContextAnalyzerV2:
                 "FULL ALIGNMENT"
             )
 
+        elif aligned_count == 2:
+
+            score += 0.03
+
+            reasons.append(
+                "PARTIAL ALIGNMENT"
+            )
+
         elif aligned_count == 0:
 
-            score -= 0.12
+            score -= 0.16
 
             reasons.append(
                 "FULL MISALIGNMENT"
+            )
+
+        # =============================================
+        # 🔥 FRAGMENTATION DETECTION
+        # =============================================
+
+        if range_count >= 2:
+
+            score -= 0.08
+
+            reasons.append(
+                "FRAGMENTED STRUCTURE"
+            )
+
+        # 🔥 mixed structural environment
+        if (
+            aligned_count == 1
+            and range_count >= 1
+        ):
+
+            score -= 0.06
+
+            reasons.append(
+                "MIXED CONTEXT"
             )
 
         # =============================================

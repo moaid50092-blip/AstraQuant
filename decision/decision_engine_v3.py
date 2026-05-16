@@ -35,6 +35,17 @@ class DecisionEngineV3:
         mtf_5m = mtf.get("5m")
         mtf_15m = mtf.get("15m")
 
+        breakout = data.get("breakout", False)
+
+        zone = data.get("zone")
+
+        trend = data.get("trend")
+
+        acceleration = data.get(
+            "acceleration",
+            False
+        )
+
         # =========================================
         # 🔥 PRESSURE DETECTION
         # =========================================
@@ -72,6 +83,22 @@ class DecisionEngineV3:
             ):
                 return "HTF SELL PRESSURE"
 
+            # 🔥 exhaustion suppression
+            if (
+                zone == "high"
+                and not breakout
+                and strength < 0.62
+            ):
+                return "BUY EXHAUSTION"
+
+            # 🔥 weak transitional continuation
+            if (
+                trend != "up"
+                and not breakout
+                and strength < 0.58
+            ):
+                return "WEAK TRANSITION"
+
         # =========================================
         # 🔥 SELL FILTER
         # =========================================
@@ -82,7 +109,7 @@ class DecisionEngineV3:
                 return "WEAK MOMENTUM"
 
             if (
-                not data.get("breakout")
+                not breakout
                 and not early
                 and strength < 0.55
             ):
@@ -101,6 +128,40 @@ class DecisionEngineV3:
                 and strength < 0.6
             ):
                 return "HTF BUY PRESSURE"
+
+            # 🔥 exhaustion suppression
+            if (
+                zone == "low"
+                and not breakout
+                and strength < 0.62
+            ):
+                return "SELL EXHAUSTION"
+
+            # 🔥 weak transitional continuation
+            if (
+                trend != "down"
+                and not breakout
+                and strength < 0.58
+            ):
+                return "WEAK TRANSITION"
+
+        # =========================================
+        # 🔥 EARLY VALIDATION
+        # =========================================
+
+        if early:
+
+            if not acceleration:
+                return "WEAK EARLY"
+
+            if strength < 0.5:
+                return "WEAK EARLY"
+
+            if (
+                breakout is False
+                and strength < 0.6
+            ):
+                return "UNCONFIRMED EARLY"
 
         # =========================================
         # 🔥 RANGE FILTER
@@ -178,6 +239,50 @@ class DecisionEngineV3:
         if data["setup"] == "real":
             score += self.weights["setup"]
 
+        # =========================================
+        # 🔥 DIRECTIONAL CONFLUENCE
+        # =========================================
+
+        momentum = data.get("momentum")
+        zone = data.get("zone")
+
+        breakout = data.get("breakout")
+
+        if (
+            momentum == "up"
+            and zone == "low"
+        ):
+            score += 0.5
+
+        elif (
+            momentum == "down"
+            and zone == "high"
+        ):
+            score += 0.5
+
+        # 🔥 breakout continuation boost
+        if (
+            breakout
+            and aligned >= 3
+            and data["strength"] >= 0.65
+        ):
+            score += 0.7
+
+        # 🔥 exhaustion penalty
+        if (
+            momentum == "up"
+            and zone == "high"
+            and not breakout
+        ):
+            score -= 1.0
+
+        elif (
+            momentum == "down"
+            and zone == "low"
+            and not breakout
+        ):
+            score -= 1.0
+
         return score
 
     # -------------------------------------------------
@@ -209,18 +314,36 @@ class DecisionEngineV3:
         if aligned >= 2:
             score += 0.5
 
+        # 🔥 noisy range suppression
+        if aligned == 0:
+            score -= 1.0
+
+        # 🔥 weak rotational rejection
+        if conf < 1.2:
+            score -= 0.8
+
         # 🔥 zone logic
         if (
             signal == "BUY"
             and data["zone"] == "low"
         ):
-            score += 0.5
+            score += 0.8
 
         elif (
             signal == "SELL"
             and data["zone"] == "high"
         ):
-            score += 0.5
+            score += 0.8
+
+        else:
+            score -= 0.7
+
+        # 🔥 breakout contamination
+        if (
+            data.get("breakout")
+            and conf < 1.5
+        ):
+            score -= 0.8
 
         return score, signal
 
@@ -240,6 +363,8 @@ class DecisionEngineV3:
             "confidence",
             "MEDIUM"
         )
+
+        mode = self.detect_mode(data)
 
         # =========================================
         # 🔥 PROBABILITY
@@ -269,6 +394,38 @@ class DecisionEngineV3:
 
         elif confidence == "LOW":
             threshold += 0.8
+
+        # =========================================
+        # 🔥 TRANSITIONAL HARDENING
+        # =========================================
+
+        if mode == "TRANSITION":
+
+            mtf = data.get("mtf", {})
+
+            aligned = sum(
+                1 for x in mtf.values()
+                if x == data.get("momentum")
+            )
+
+            breakout = data.get("breakout")
+
+            strength = data.get("strength", 0)
+
+            # 🔥 fragmented structure penalty
+            if aligned <= 1:
+                threshold += 1.0
+
+            # 🔥 weak continuation suppression
+            if strength < 0.58:
+                threshold += 0.8
+
+            # 🔥 low-quality expansion rejection
+            if (
+                not breakout
+                and aligned < 2
+            ):
+                threshold += 0.7
 
         return score, threshold
 
@@ -365,6 +522,8 @@ class DecisionEngineV3:
 
         strength = data.get("strength", 0)
 
+        breakout = data.get("breakout")
+
         # =========================================
         # 🔥 EARLY
         # =========================================
@@ -372,8 +531,9 @@ class DecisionEngineV3:
         if (
             early
             and acceleration
-            and strength > 0.45
-            and prob > 0.54
+            and breakout
+            and strength > 0.55
+            and prob > 0.58
         ):
             return "EARLY"
 
@@ -434,7 +594,7 @@ class DecisionEngineV3:
             )
 
             # 🔥 weak range rejection
-            if data.get("range_confidence", 0) < 1:
+            if data.get("range_confidence", 0) < 1.2:
 
                 return {
                     "decision": "IGNORE",
@@ -455,6 +615,26 @@ class DecisionEngineV3:
             threshold = self.transition_threshold
 
             direction = data["momentum"]
+
+            # =====================================
+            # 🔥 TRANSITIONAL FILTERING
+            # =====================================
+
+            mtf = data.get("mtf", {})
+
+            aligned = sum(
+                1 for x in mtf.values()
+                if x == direction
+            )
+
+            if aligned <= 1:
+                threshold += 1.0
+
+            if (
+                not data.get("breakout")
+                and data.get("strength", 0) < 0.6
+            ):
+                threshold += 0.8
 
         # =========================================
         # 🔥 DIRECTION OVERLAY
@@ -495,6 +675,8 @@ class DecisionEngineV3:
 
         prob = data.get("probability", 0)
 
+        breakout = data.get("breakout")
+
         # =========================================
         # 🔥 KILL WEAK EARLY
         # =========================================
@@ -502,8 +684,9 @@ class DecisionEngineV3:
         if (
             early
             and (
-                strength < 0.4
-                or prob < 0.52
+                strength < 0.5
+                or prob < 0.55
+                or not acceleration
             )
         ):
             early = False
@@ -519,38 +702,75 @@ class DecisionEngineV3:
             # 🔥 production-grade early
             if (
                 acceleration
+                and breakout
                 and confidence == "HIGH"
-                and prob > 0.58
+                and prob > 0.6
+                and strength > 0.58
             ):
 
                 final_threshold -= 1.0
 
             elif (
-                confidence == "MEDIUM"
-                and prob > 0.55
+                acceleration
+                and confidence == "MEDIUM"
+                and prob > 0.57
+                and strength > 0.54
             ):
 
                 final_threshold -= 0.3
 
             else:
                 # early ضعيف = عقوبة
-                final_threshold += 0.5
+                final_threshold += 0.8
 
         # =========================================
-        # 🔥 FINAL DECISION
+        # 🔥 FINAL DIRECTIONAL VALIDATION
         # =========================================
 
-        if score >= final_threshold:
+        mtf = data.get("mtf", {})
 
-            decision = "ENTER"
+        aligned = sum(
+            1 for x in mtf.values()
+            if x == direction
+        )
 
-        elif score >= final_threshold - 2:
+        if (
+            decision := (
+                "ENTER"
+                if score >= final_threshold
+                else (
+                    "WATCH"
+                    if score >= final_threshold - 2
+                    else "IGNORE"
+                )
+            )
+        ) == "ENTER":
 
-            decision = "WATCH"
+            # 🔥 weak directional confluence
+            if aligned < 2:
+                decision = "WATCH"
 
-        else:
+            # 🔥 exhaustion suppression
+            if (
+                direction == "up"
+                and data.get("zone") == "high"
+                and not breakout
+            ):
+                decision = "WATCH"
 
-            decision = "IGNORE"
+            elif (
+                direction == "down"
+                and data.get("zone") == "low"
+                and not breakout
+            ):
+                decision = "WATCH"
+
+            # 🔥 weak breakout continuation
+            if (
+                breakout
+                and strength < 0.58
+            ):
+                decision = "WATCH"
 
         # =========================================
         # 🔥 ENTRY TYPE

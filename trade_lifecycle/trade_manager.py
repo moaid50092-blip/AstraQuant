@@ -157,6 +157,10 @@ class TradeManager:
 
         previous_state = trade.state
 
+        previous_exit_confirmed = (
+            trade.exit_confirmed
+        )
+
         # ==============================================
         # 🔥 UPDATE INTERNAL STATE
         # ==============================================
@@ -197,7 +201,8 @@ class TradeManager:
         self._handle_exit_confirmation(
             trade,
             profile,
-            lifecycle_events
+            lifecycle_events,
+            previous_exit_confirmed
         )
 
         # ==============================================
@@ -288,7 +293,8 @@ class TradeManager:
         self,
         trade,
         profile,
-        lifecycle_events
+        lifecycle_events,
+        previous_exit_confirmed
     ):
 
         """
@@ -302,6 +308,47 @@ class TradeManager:
 
         This remains runtime execution coordination only.
         """
+
+        if (
+            trade.exit_confirmed
+            and not previous_exit_confirmed
+        ):
+
+            lifecycle_events.append({
+
+                "type":
+                    "EXIT_CONFIRMED",
+
+                "symbol":
+                    trade.symbol,
+
+                "trade_type":
+                    trade.trade_type,
+
+                "direction":
+                    trade.direction,
+
+                "held_cycles":
+                    trade.cycles_alive,
+
+                "peak_probability":
+                    round(
+                        trade.highest_probability,
+                        3
+                    ),
+
+                "final_probability":
+                    round(
+                        trade.current_probability,
+                        3
+                    ),
+
+                "reason":
+                    trade.exit_reason
+                    or "lifecycle_exit"
+            })
+
+            return
 
         should_exit = (
             profile.should_confirm_exit(
@@ -503,6 +550,9 @@ class TradeManager:
             )
 
             if not should_exit:
+                continue
+
+            if trade.exit_confirmed:
                 continue
 
             trade.exit_confirmed = True
